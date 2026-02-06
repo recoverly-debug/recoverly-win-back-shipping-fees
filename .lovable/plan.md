@@ -1,3 +1,4 @@
+.lovable/plan.md
 
 
 # Recoverly - Implementation Plan
@@ -103,4 +104,3 @@ After validating the core pages, we'll add:
 - Realistic shipping claim examples
 - Varied carrier and issue types
 - Believable dollar amounts and dates
-
