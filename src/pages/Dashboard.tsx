@@ -1,4 +1,4 @@
-import DashboardNav from "@/components/dashboard/DashboardNav";
+import AppNav from "@/components/navigation/AppNav";
 import StatsRow from "@/components/dashboard/StatsRow";
 import RecoveryChart from "@/components/dashboard/RecoveryChart";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
@@ -9,7 +9,7 @@ import InsightCard from "@/components/dashboard/InsightCard";
 const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav />
+      <AppNav />
       
       <main className="container px-4 py-8">
         <div className="mb-8">

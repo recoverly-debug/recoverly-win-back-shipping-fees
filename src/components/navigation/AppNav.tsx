@@ -21,6 +21,7 @@ const modules = [
 const navItems = [
   { label: "Home", path: "/agent" },
   { label: "Approvals", path: "/approvals" },
+  { label: "Claims", path: "/claims" },
   { label: "Report", path: "/report" },
   { label: "Connectors", path: "/connectors" },
   { label: "Settings", path: "/app-settings" },

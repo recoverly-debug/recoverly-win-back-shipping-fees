@@ -1,5 +1,5 @@
 import { useState } from "react";
-import DashboardNav from "@/components/dashboard/DashboardNav";
+import AppNav from "@/components/navigation/AppNav";
 import ProfileTab from "@/components/settings/ProfileTab";
 import ConnectionsTab from "@/components/settings/ConnectionsTab";
 import BillingTab from "@/components/settings/BillingTab";
@@ -19,7 +19,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav />
+      <AppNav />
 
       <main className="container px-4 py-8 space-y-6 max-w-3xl">
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>

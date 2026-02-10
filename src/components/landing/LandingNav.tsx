@@ -11,10 +11,10 @@ const LandingNav = () => {
           
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
-              <Link to="/dashboard">Login</Link>
+              <Link to="/agent">Login</Link>
             </Button>
             <Button asChild className="glow-hover bg-primary text-primary-foreground">
-              <Link to="/dashboard">Get Started</Link>
+              <Link to="/agent">Get Started</Link>
             </Button>
           </div>
         </div>

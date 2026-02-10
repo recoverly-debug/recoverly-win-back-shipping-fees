@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import DashboardNav from "@/components/dashboard/DashboardNav";
+import AppNav from "@/components/navigation/AppNav";
 import ClaimsFilterTabs from "@/components/claims/ClaimsFilterTabs";
 import ClaimsStatsBar from "@/components/claims/ClaimsStatsBar";
 import ClaimsTable from "@/components/claims/ClaimsTable";
@@ -58,7 +58,7 @@ const Claims = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav />
+      <AppNav />
 
       <main className="container px-4 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
