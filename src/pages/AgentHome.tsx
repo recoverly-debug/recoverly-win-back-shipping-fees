@@ -1,10 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Sparkles, RefreshCw } from "lucide-react";
 import AppNav from "@/components/navigation/AppNav";
 import StatusCard from "@/components/core/StatusCard";
 import ActivityCard from "@/components/core/ActivityCard";
 import UndoToast from "@/components/core/UndoToast";
-import { allCases, getTotalRecovery, getPipelineTotal, getReadyCases, getNeedsAttentionCases, getFoundCases, getFoundTotal, formatMoney } from "@/lib/case-data";
+import { allCases, formatMoney } from "@/lib/case-data";
 import type { Case } from "@/lib/case-data";
 
 const AgentHome = () => {
@@ -12,12 +12,12 @@ const AgentHome = () => {
   const [undoAction, setUndoAction] = useState<{ message: string; undo: () => void } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const totalRecovery = getTotalRecovery();
-  const pipelineTotal = getPipelineTotal();
-  const readyCases = getReadyCases();
-  const needsAttention = getNeedsAttentionCases();
-  const foundCases = getFoundCases();
-  const foundTotal = getFoundTotal();
+  const totalRecovery = useMemo(() => cases.filter((c) => ["APPROVED", "PAID"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
+  const pipelineTotal = useMemo(() => cases.filter((c) => !["PAID", "UNRECOVERABLE"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
+  const readyCases = useMemo(() => cases.filter((c) => ["FOUND", "READY"].includes(c.status)), [cases]);
+  const needsAttention = useMemo(() => cases.filter((c) => ["NEEDS_EVIDENCE", "DENIED"].includes(c.status)), [cases]);
+  const foundCases = useMemo(() => cases.filter((c) => c.status === "FOUND"), [cases]);
+  const foundTotal = useMemo(() => foundCases.reduce((sum, c) => sum + c.amount, 0), [foundCases]);
 
   const handleApprove = useCallback((id: string) => {
     const original = [...cases];

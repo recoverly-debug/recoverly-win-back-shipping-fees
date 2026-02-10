@@ -47,7 +47,7 @@ export interface ClaimDetail {
   issue: string;
   issue_description: string;
   amount: number;
-  status: "detected" | "filed" | "approved" | "denied";
+  status: "detected" | "submitted" | "approved" | "denied";
   date: string;
   shipment: ClaimShipment;
   order: ClaimOrder;
@@ -94,7 +94,7 @@ export const claimDetails: Record<string, ClaimDetail> = {
       { ts: "2025-01-26T08:00:00Z", event: "Guaranteed date passed", note: "UPS Ground guaranteed delivery by 1/26. Package still in transit.", actor: "AGENT" },
       { ts: "2025-01-28T11:30:00Z", event: "Delivered", note: "Delivered 2 days late. Left at front door.", actor: "CARRIER" },
       { ts: "2025-01-28T12:00:00Z", event: "Late delivery detected", note: "Agent detected GSR violation — $42.50 refund eligible.", actor: "AGENT" },
-      { ts: "2025-01-28T14:00:00Z", event: "Claim filed", note: "Filed via ShipStation claim flow.", actor: "AGENT" },
+      { ts: "2025-01-28T14:00:00Z", event: "Claim submitted", note: "Submitted via ShipStation claim flow.", actor: "AGENT" },
       { ts: "2025-01-30T09:00:00Z", event: "Claim approved", note: "UPS approved full refund of $42.50.", actor: "CARRIER" },
     ],
     documents: [
@@ -105,18 +105,18 @@ export const claimDetails: Record<string, ClaimDetail> = {
   },
   "CLM-002": {
     id: "CLM-002",
-    tracking: "9400111899223100001",
+    tracking: "94001118992231000012",
     carrier: "USPS",
     issue: "Weight Overcharge",
     issue_description: "Billed weight exceeds actual package weight by 12 oz. USPS charged based on 3 lbs instead of actual 2.25 lbs, resulting in $24.00 overcharge.",
     amount: 24.0,
-    status: "filed",
+    status: "submitted",
     date: "2025-01-27",
     shipment: {
       shipment_id: "SH-4215",
       carrier: "USPS",
       service: "USPS Priority Mail",
-      tracking: "9400111899223100001",
+      tracking: "94001118992231000012",
       ship_date: "2025-01-24",
       delivery_date: "2025-01-27",
       weight_oz: 36,
@@ -137,7 +137,7 @@ export const claimDetails: Record<string, ClaimDetail> = {
       { ts: "2025-01-24T08:00:00Z", event: "Shipped", note: "Label created, 2.25 lbs actual weight.", actor: "AGENT" },
       { ts: "2025-01-27T15:00:00Z", event: "Delivered", note: "Delivered to mailbox.", actor: "CARRIER" },
       { ts: "2025-01-27T16:00:00Z", event: "Overcharge detected", note: "Billed 3 lbs vs 2.25 lbs actual. $24.00 difference.", actor: "AGENT" },
-      { ts: "2025-01-27T16:30:00Z", event: "Claim filed", note: "Filed weight adjustment claim via ShipStation.", actor: "AGENT" },
+      { ts: "2025-01-27T16:30:00Z", event: "Claim submitted", note: "Submitted weight adjustment claim via ShipStation.", actor: "AGENT" },
     ],
     documents: [
       { id: "doc-4", name: "Shipping Label", type: "label", source: "ShipStation", size: "118 KB", date: "2025-01-24" },
@@ -178,7 +178,7 @@ export const claimDetails: Record<string, ClaimDetail> = {
       { ts: "2025-01-22T10:00:00Z", event: "Shipped", note: "FedEx Home Delivery label created.", actor: "AGENT" },
       { ts: "2025-01-25T13:00:00Z", event: "Delivered", note: "Signed by receptionist at front desk.", actor: "CARRIER" },
       { ts: "2025-01-26T08:00:00Z", event: "Surcharge detected", note: "Residential surcharge applied to verified commercial address.", actor: "AGENT" },
-      { ts: "2025-01-26T10:00:00Z", event: "Claim filed", note: "Filed invalid surcharge claim.", actor: "AGENT" },
+      { ts: "2025-01-26T10:00:00Z", event: "Claim submitted", note: "Submitted invalid surcharge claim via ShipStation.", actor: "AGENT" },
       { ts: "2025-01-29T09:00:00Z", event: "Claim approved", note: "FedEx confirmed error. $18.20 refund issued.", actor: "CARRIER" },
     ],
     documents: [
@@ -265,7 +265,7 @@ export const claimDetails: Record<string, ClaimDetail> = {
       { ts: "2025-01-20T10:00:00Z", event: "Shipped", note: "FedEx Ground label created.", actor: "AGENT" },
       { ts: "2025-01-24T12:00:00Z", event: "Delivered", note: "Signed for by recipient.", actor: "CARRIER" },
       { ts: "2025-01-25T06:00:00Z", event: "DIM error detected", note: "Billed 18×14×10 vs actual 12×10×8. $56.80 overcharge.", actor: "AGENT" },
-      { ts: "2025-01-25T08:00:00Z", event: "Claim filed", note: "Filed DIM weight adjustment claim.", actor: "AGENT" },
+      { ts: "2025-01-25T08:00:00Z", event: "Claim submitted", note: "Submitted DIM weight adjustment claim via ShipStation.", actor: "AGENT" },
       { ts: "2025-01-28T11:00:00Z", event: "Claim approved", note: "FedEx confirmed DIM error. Full refund of $56.80.", actor: "CARRIER" },
     ],
     documents: [

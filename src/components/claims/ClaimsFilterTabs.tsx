@@ -3,7 +3,7 @@ import type { ClaimStatus } from "@/lib/claims-data";
 const tabs: { label: string; value: ClaimStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Detected", value: "detected" },
-  { label: "Filed", value: "filed" },
+  { label: "Submitted", value: "submitted" },
   { label: "Approved", value: "approved" },
   { label: "Denied", value: "denied" },
 ];

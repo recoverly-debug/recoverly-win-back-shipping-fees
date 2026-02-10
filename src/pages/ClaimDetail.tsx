@@ -264,7 +264,7 @@ function IssueTab({ detail, claim }: { detail?: ClaimDetailType; claim: typeof c
               <p className="text-foreground font-medium">{claim.carrier}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Filed</p>
+              <p className="text-xs text-muted-foreground mb-1">Submitted</p>
               <p className="text-foreground font-medium">{new Date(claim.date).toLocaleDateString()}</p>
             </div>
           </div>
