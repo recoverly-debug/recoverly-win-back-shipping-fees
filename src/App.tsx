@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Claims from "./pages/Claims";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { Navigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +34,7 @@ const App = () => (
           <Route path="/report" element={<RecoveryReport />} />
           <Route path="/app-settings" element={<AppSettings />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Navigate to="/agent" replace />} />
           <Route path="/claims" element={<Claims />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
