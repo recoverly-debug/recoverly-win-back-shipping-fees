@@ -107,9 +107,9 @@ const Onboarding = () => {
             <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="h-7 w-7 text-primary" />
             </div>
-            <h2 className="text-lg font-bold text-foreground mb-2">Found $487.75 to recover!</h2>
+            <h2 className="text-lg font-bold text-foreground mb-2">Found $2,194.45 to recover!</h2>
             <p className="text-sm text-muted-foreground mb-1">10 issues across UPS, FedEx, and USPS</p>
-            <p className="text-4xl font-bold text-primary money-glow my-4">$487.75</p>
+            <p className="text-4xl font-bold text-primary money-glow my-4">$2,194.45</p>
             <div className="grid grid-cols-2 gap-3 mb-6 text-sm">
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Overcharges</span><br /><span className="text-foreground font-bold">4 cases</span></div>
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Late Deliveries</span><br /><span className="text-foreground font-bold">3 cases</span></div>
