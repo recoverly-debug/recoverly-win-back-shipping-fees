@@ -1,10 +1,11 @@
 interface ClaimsStatsBarProps {
   total: number;
   recovered: number;
-  successRate: number;
+  submitted: number;
+  needsEvidence: number;
 }
 
-const ClaimsStatsBar = ({ total, recovered, successRate }: ClaimsStatsBarProps) => (
+const ClaimsStatsBar = ({ total, recovered, submitted, needsEvidence }: ClaimsStatsBarProps) => (
   <div className="flex items-center gap-6 text-sm">
     <span>
       <span className="font-semibold text-foreground">{total}</span>{" "}
@@ -17,8 +18,13 @@ const ClaimsStatsBar = ({ total, recovered, successRate }: ClaimsStatsBarProps) 
     </span>
     <span className="w-px h-4 bg-border" />
     <span>
-      <span className="font-semibold text-foreground">{successRate}%</span>{" "}
-      <span className="text-muted-foreground">success</span>
+      <span className="font-semibold text-foreground">{submitted}</span>{" "}
+      <span className="text-muted-foreground">submitted</span>
+    </span>
+    <span className="w-px h-4 bg-border" />
+    <span>
+      <span className="font-semibold text-foreground">{needsEvidence}</span>{" "}
+      <span className="text-muted-foreground">needs evidence</span>
     </span>
   </div>
 );

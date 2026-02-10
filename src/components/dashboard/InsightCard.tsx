@@ -11,7 +11,7 @@ const InsightCard = () => {
         <div>
           <h3 className="font-semibold text-foreground mb-1">Optimization Insight</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Your USPS on-time delivery rate is below average at 71%. Consider shifting Priority Mail 
+            We detected 14 late USPS deliveries in the last 90 days. Consider shifting Priority Mail
             volume to UPS Ground for better reliability and fewer late delivery claims.
           </p>
         </div>

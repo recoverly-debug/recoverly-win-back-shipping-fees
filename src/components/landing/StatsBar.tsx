@@ -53,7 +53,7 @@ const StatsBar = () => {
   const stats = [
     { value: 12.4, prefix: "$", suffix: "M+", label: "recovered", decimals: 1 },
     { value: 2400, prefix: "", suffix: "+", label: "sellers", decimals: 0 },
-    { value: 94, prefix: "", suffix: "%", label: "approval rate", decimals: 0 },
+    { value: 4.8, prefix: "", suffix: " of 5", label: "avg evidence items", decimals: 1 },
   ];
 
   return (
