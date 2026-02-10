@@ -1,16 +1,17 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, Pause, MessageSquare, Camera, Send, Package } from "lucide-react";
+import { ArrowLeft, Check, Pause, MessageSquare, Camera, Package, ImagePlus } from "lucide-react";
 import AppNav from "@/components/navigation/AppNav";
-import StatusCard from "@/components/core/StatusCard";
 import MoneyBadge from "@/components/core/MoneyBadge";
 import ReceiptStrip from "@/components/core/ReceiptStrip";
 import CaseTimeline from "@/components/core/CaseTimeline";
 import PacketViewer from "@/components/core/PacketViewer";
 import ChatDrawer from "@/components/core/ChatDrawer";
 import UndoToast from "@/components/core/UndoToast";
-import { getCaseById, statusConfig, laneConfig, carrierConfig } from "@/lib/case-data";
+import RequestPhotosModal from "@/components/core/RequestPhotosModal";
+import { getCaseById, statusConfig, laneConfig, carrierConfig, formatMoney } from "@/lib/case-data";
 import type { Case, EvidenceType } from "@/lib/case-data";
+import { toast } from "@/hooks/use-toast";
 
 const expectedEvidence: Record<string, EvidenceType[]> = {
   OVERCHARGE: ["SHIPSTATION_LABEL", "SHIPSTATION_SHIPMENT", "CARRIER_INVOICE_LINE", "ADJUSTMENT_LINE"],
@@ -26,6 +27,7 @@ const CaseDetail = () => {
   const initialTab = searchParams.get("tab") || "summary";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [chatOpen, setChatOpen] = useState(false);
+  const [photosModalOpen, setPhotosModalOpen] = useState(false);
   const [undoAction, setUndoAction] = useState<{ message: string; undo: () => void } | null>(null);
   const [caseData, setCaseData] = useState<Case | undefined>(getCaseById(id || ""));
 
@@ -57,25 +59,39 @@ const CaseDetail = () => {
     });
   };
 
-  const handleRequestEvidence = () => {
-    // Mock: simulate receiving photos
+  const handleMarkPhotosReceived = () => {
     const updatedCase: Case = {
       ...caseData,
       status: "READY",
       confidence_label: "MEDIUM",
-      confidence_reason: "Medium confidence — customer photos received, case ready for filing.",
+      confidence_reason: "Medium — 4 of 4 core evidence items present. Customer photos received.",
       evidence: [
         ...caseData.evidence,
-        { type: "PHOTOS", source: "UPLOAD", file_ref: "customer-photos.zip", summary: "5 photos: damaged item, packaging, shipping box." },
+        { type: "PHOTOS", source: "UPLOAD", file_ref: "customer-photos.zip", summary: "5 photos: damaged item (3), packaging condition (2)." },
       ],
       timeline: [
         ...caseData.timeline,
-        { ts: new Date().toISOString(), event: "Evidence received", note: "Customer provided 5 damage photos.", actor: "USER" },
-        { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for filing.", actor: "AGENT" },
+        { ts: new Date().toISOString(), event: "Evidence received", note: "Customer provided 5 damage photos.", actor: "USER" as const },
+        { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for filing.", actor: "AGENT" as const },
       ],
     };
     setCaseData(updatedCase);
+    toast({ title: "Photos received", description: "Case updated to Ready with 5 customer photos." });
   };
+
+  const handlePhotosRequestSent = () => {
+    setCaseData({
+      ...caseData,
+      timeline: [
+        ...caseData.timeline,
+        { ts: new Date().toISOString(), event: "Customer evidence requested", note: "Photo request sent to customer.", actor: "AGENT" as const },
+      ],
+    });
+  };
+
+  const handleRequestPhotos = () => setPhotosModalOpen(true);
+  const handleUploadPdf = () => toast({ title: "Upload started", description: "Upload dialog would open here." });
+  const handleRefreshTracking = () => toast({ title: "Tracking refreshed", description: "Latest tracking events pulled from carrier." });
 
   const tabs = [
     { label: "Summary", value: "summary" },
@@ -111,7 +127,7 @@ const CaseDetail = () => {
           <MoneyBadge amount={caseData.amount} status={caseData.status} size="lg" />
         </div>
 
-        {/* Confidence */}
+        {/* Confidence + Submission Route */}
         <div className="p-3 rounded-lg bg-surface border border-border mb-4">
           <p className="text-xs text-muted-foreground">{caseData.confidence_reason}</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -121,7 +137,7 @@ const CaseDetail = () => {
 
         {/* Damage CTA */}
         {isDamageNeedsEvidence && (
-          <div className="p-4 rounded-xl border border-amber/30 bg-amber/5 mb-4">
+          <div className="p-4 rounded-xl border border-amber/30 bg-amber/5 mb-4 space-y-3">
             <div className="flex items-start gap-3">
               <Camera className="h-5 w-5 text-amber mt-0.5" />
               <div className="flex-1">
@@ -129,12 +145,20 @@ const CaseDetail = () => {
                 <p className="text-xs text-muted-foreground mb-3">
                   Request 3–5 item photos + packaging photos from {caseData.shopify_order.customer_name} to strengthen this claim.
                 </p>
-                <button
-                  onClick={handleRequestEvidence}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber text-warning-foreground text-sm font-medium hover:bg-amber/90 transition-colors"
-                >
-                  <Send className="h-4 w-4" /> Request Evidence from Customer
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={handleRequestPhotos}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber text-warning-foreground text-sm font-medium hover:bg-amber/90 transition-colors"
+                  >
+                    <Camera className="h-4 w-4" /> Request Evidence from Customer
+                  </button>
+                  <button
+                    onClick={handleMarkPhotosReceived}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-accent transition-colors"
+                  >
+                    <ImagePlus className="h-4 w-4" /> Mark Photos Received (Mock)
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -164,12 +188,11 @@ const CaseDetail = () => {
         {/* Tab Content */}
         {activeTab === "summary" && (
           <div className="space-y-4 animate-fade-in">
-            {/* Shopify Order */}
             <div className="p-4 rounded-xl border border-border bg-card">
               <h3 className="label-caps mb-3">Shopify Order</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Order:</span> <span className="text-foreground font-medium">{caseData.shopify_order.order_number}</span></div>
-                <div><span className="text-muted-foreground">Total:</span> <span className="text-foreground font-medium">${caseData.shopify_order.total}</span></div>
+                <div><span className="text-muted-foreground">Total:</span> <span className="text-foreground font-medium">{formatMoney(caseData.shopify_order.total)}</span></div>
                 <div><span className="text-muted-foreground">Customer:</span> <span className="text-foreground font-medium">{caseData.shopify_order.customer_name}</span></div>
                 <div><span className="text-muted-foreground">Date:</span> <span className="text-foreground font-medium">{new Date(caseData.shopify_order.created_at).toLocaleDateString()}</span></div>
               </div>
@@ -178,13 +201,12 @@ const CaseDetail = () => {
                 {caseData.shopify_order.items.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between text-sm py-1">
                     <span className="text-foreground">{item.name} ×{item.qty}</span>
-                    <span className="text-muted-foreground">${item.price}</span>
+                    <span className="text-muted-foreground">{formatMoney(item.price)}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* ShipStation Shipment */}
             <div className="p-4 rounded-xl border border-border bg-card">
               <h3 className="label-caps mb-3">ShipStation Shipment</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -194,7 +216,7 @@ const CaseDetail = () => {
                 <div><span className="text-muted-foreground">Ship Date:</span> <span className="text-foreground">{caseData.shipstation_shipment.ship_date}</span></div>
                 <div><span className="text-muted-foreground">Weight:</span> <span className="text-foreground">{caseData.shipstation_shipment.weight_oz} oz</span></div>
                 <div><span className="text-muted-foreground">Dims:</span> <span className="text-foreground">{`${caseData.shipstation_shipment.dimensions.l}×${caseData.shipstation_shipment.dimensions.w}×${caseData.shipstation_shipment.dimensions.h}`}</span></div>
-                <div><span className="text-muted-foreground">Cost:</span> <span className="text-foreground font-medium">${caseData.shipstation_shipment.shipping_cost}</span></div>
+                <div><span className="text-muted-foreground">Cost:</span> <span className="text-foreground font-medium">{formatMoney(caseData.shipstation_shipment.shipping_cost)}</span></div>
                 {caseData.shipstation_shipment.billed_dimensions && (
                   <div><span className="text-muted-foreground">Billed Dims:</span> <span className="text-amber font-medium">{`${caseData.shipstation_shipment.billed_dimensions.l}×${caseData.shipstation_shipment.billed_dimensions.w}×${caseData.shipstation_shipment.billed_dimensions.h}`}</span></div>
                 )}
@@ -215,6 +237,9 @@ const CaseDetail = () => {
               evidence={caseData.evidence}
               showMissing
               expectedTypes={expectedEvidence[caseData.lane]}
+              onRequestPhotos={handleRequestPhotos}
+              onUploadPdf={handleUploadPdf}
+              onRefreshTracking={handleRefreshTracking}
             />
           </div>
         )}
@@ -223,7 +248,7 @@ const CaseDetail = () => {
         <div className="flex items-center gap-3 mt-8 pb-8">
           {["FOUND", "READY"].includes(caseData.status) && (
             <button onClick={handleApprove} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2">
-              <Check className="h-5 w-5" /> Approve & File
+              <Check className="h-5 w-5" /> Approve & Submit
             </button>
           )}
           {!["PAID", "APPROVED"].includes(caseData.status) && (
@@ -241,6 +266,16 @@ const CaseDetail = () => {
       </main>
 
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} caseId={caseData.id} />
+
+      <RequestPhotosModal
+        open={photosModalOpen}
+        onClose={() => setPhotosModalOpen(false)}
+        orderNumber={caseData.shopify_order.order_number}
+        trackingNumber={caseData.tracking_number}
+        customerName={caseData.shopify_order.customer_name}
+        caseId={caseData.id}
+        onSent={handlePhotosRequestSent}
+      />
 
       {undoAction && (
         <UndoToast

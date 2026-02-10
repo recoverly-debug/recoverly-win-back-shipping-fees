@@ -1,10 +1,13 @@
-import { FileText, Image, Package, Receipt, Truck, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { FileText, Image, Package, Receipt, Truck, Clock, AlertTriangle, CheckCircle2, Camera, Upload, RefreshCw } from "lucide-react";
 import type { Evidence, EvidenceType } from "@/lib/case-data";
 
 interface PacketViewerProps {
   evidence: Evidence[];
   showMissing?: boolean;
   expectedTypes?: EvidenceType[];
+  onRequestPhotos?: () => void;
+  onUploadPdf?: () => void;
+  onRefreshTracking?: () => void;
 }
 
 const evidenceIcons: Record<EvidenceType, typeof FileText> = {
@@ -35,11 +38,14 @@ const sourceLabels = {
   UPLOAD: "User Upload",
 };
 
-const PacketViewer = ({ evidence, showMissing = true, expectedTypes }: PacketViewerProps) => {
+const PacketViewer = ({ evidence, showMissing = true, expectedTypes, onRequestPhotos, onUploadPdf, onRefreshTracking }: PacketViewerProps) => {
   const presentTypes = new Set(evidence.map((e) => e.type));
   const missingTypes = expectedTypes
     ? expectedTypes.filter((t) => !presentTypes.has(t))
     : [];
+
+  const totalExpected = expectedTypes?.length ?? 0;
+  const totalPresent = totalExpected - missingTypes.length;
 
   // Group by source
   const grouped: Record<string, Evidence[]> = {};
@@ -49,8 +55,35 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes }: PacketVie
     grouped[key].push(e);
   });
 
+  const getMissingAction = (type: EvidenceType) => {
+    if (type === "PHOTOS" && onRequestPhotos) {
+      return { label: "Request from Customer", icon: Camera, onClick: onRequestPhotos };
+    }
+    if ((type === "CARRIER_INVOICE_LINE" || type === "UPLOADED_PDF" || type === "ADJUSTMENT_LINE") && onUploadPdf) {
+      return { label: "Upload PDF", icon: Upload, onClick: onUploadPdf };
+    }
+    if (type === "TRACKING_EVENTS" && onRefreshTracking) {
+      return { label: "Refresh Tracking", icon: RefreshCw, onClick: onRefreshTracking };
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-4">
+      {/* Completeness Summary */}
+      {totalExpected > 0 && (
+        <div className="p-3 rounded-lg bg-surface border border-border">
+          <p className="text-sm text-foreground font-medium">
+            {totalPresent} of {totalExpected} core evidence items present.
+          </p>
+          {missingTypes.length > 0 && (
+            <p className="text-xs text-amber mt-0.5">
+              Missing: {missingTypes.map((t) => evidenceLabels[t].toLowerCase()).join(", ")}.
+            </p>
+          )}
+        </div>
+      )}
+
       {Object.entries(grouped).map(([source, items]) => (
         <div key={source}>
           <h4 className="label-caps mb-2">{source}</h4>
@@ -89,6 +122,7 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes }: PacketVie
           <div className="space-y-2">
             {missingTypes.map((type) => {
               const Icon = evidenceIcons[type];
+              const action = getMissingAction(type);
               return (
                 <div
                   key={type}
@@ -103,6 +137,14 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes }: PacketVie
                       <AlertTriangle className="h-3.5 w-3.5 text-amber" />
                     </div>
                     <p className="text-xs text-amber">Required — not yet provided</p>
+                    {action && (
+                      <button
+                        onClick={action.onClick}
+                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg border border-amber/30 text-xs font-medium text-amber hover:bg-amber/10 transition-colors"
+                      >
+                        <action.icon className="h-3.5 w-3.5" /> {action.label}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

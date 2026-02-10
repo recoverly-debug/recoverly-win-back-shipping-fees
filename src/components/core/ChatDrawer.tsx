@@ -23,7 +23,7 @@ const mockResponses: Record<string, string> = {
   "Why is this recoverable?":
     "This is recoverable because the carrier violated their service guarantee. The package was shipped via a guaranteed service level but delivered past the committed date. Under the carrier's GSR (Guaranteed Service Refund) policy, you're entitled to a full refund of shipping charges.",
   "What evidence is missing?":
-    "All core evidence is present: shipment record, tracking events, and delivery guarantee source. For the strongest case, I'd also recommend having the carrier invoice line item. Overall evidence completeness: 85%.",
+    "4 of 5 core evidence items present. Missing: carrier invoice line item. Once the invoice is uploaded or pulled from your billing feed, this case will be fully ready to submit.",
   "Summarize packet in 10 seconds":
     "📦 ShipStation shipment with tracking → promised delivery missed → carrier invoice confirms charges → refund eligible under service guarantee. All key evidence attached.",
   "Draft customer evidence request":
