@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import ClaimDetailPage from "./pages/ClaimDetail";
 import AgentHome from "./pages/AgentHome";
 import ApprovalQueue from "./pages/ApprovalQueue";
 import CaseDetail from "./pages/CaseDetail";
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/app-settings" element={<AppSettings />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/dashboard" element={<Navigate to="/agent" replace />} />
+          <Route path="/claims/:id" element={<ClaimDetailPage />} />
           <Route path="/claims" element={<Claims />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
