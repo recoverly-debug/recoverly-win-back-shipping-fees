@@ -1,106 +1,45 @@
-.lovable/plan.md
 
 
-# Recoverly - Implementation Plan
+# Fix: Unify Navigation to Access Agent Interface
 
-## Phase 1: Core Foundation
+## Problem
+The app has two disconnected navigation systems:
+- **DashboardNav** (Landing-era): serves `/dashboard`, `/claims`, `/settings`
+- **AppNav** (Agent-era): serves `/agent`, `/approvals`, `/report`, `/connectors`, `/app-settings`
 
-### 1. Design System & Theme
-Set up the premium dark mode aesthetic with your exact color palette:
-- Deep navy-black background (#0A0A0F)
-- Surface cards (#12121A) with subtle borders (#2A2A35)
-- Electric cyan primary (#00E5CC) with glow effects
-- Coral accent for warnings (#FF6B6B)
-- Typography system with bold headlines, glowing money amounts, and muted labels
+There are no cross-links between them, so navigating from `/dashboard` to `/agent` is impossible without manually changing the URL.
 
-### 2. Landing Page (/)
-**Hero Section**
-- "Your Carriers Owe You Money" headline with impactful typography
-- Subhead explaining the $847/month average recovery
-- Glowing cyan "Start Recovering" CTA button
-- Trust line: "Free to connect. We only earn when you do."
+## Solution
+Consolidate into a single navigation using `AppNav` (the newer, spec-compliant nav with module switcher). Update all pages that currently use `DashboardNav` to use `AppNav` instead, and merge the useful routes (`/claims`) into the AppNav links.
 
-**Social Proof Stats Bar**
-- Animated counters: $12.4M+ recovered, 2,400+ sellers, 94% approval rate
-- Cyan numbers with gray labels
+## Changes
 
-**How It Works**
-- 3 dark cards with cyan accent borders
-- Connect → Audit → Recover flow
+### 1. Update AppNav navigation items
+Add "Claims" to the nav items list so the claims page remains accessible:
+```
+navItems = [
+  { label: "Home", path: "/agent" },
+  { label: "Approvals", path: "/approvals" },
+  { label: "Claims", path: "/claims" },
+  { label: "Report", path: "/report" },
+  { label: "Connectors", path: "/connectors" },
+  { label: "Settings", path: "/app-settings" },
+]
+```
 
-**Recovery Types Grid**
-- 6 cards showing what we recover (Late Deliveries, Duplicate Charges, etc.)
-- Cyan checkmark icons
+### 2. Update Dashboard page
+Replace `DashboardNav` with `AppNav` in `src/pages/Dashboard.tsx`.
 
-**Testimonial Section**
-- Large quote with cyan accent
-- Customer photo and store details
+### 3. Update Claims page
+Replace `DashboardNav` with `AppNav` in `src/pages/Claims.tsx`.
 
-**Pricing Card**
-- Prominent "25%" in electric cyan
-- "of recovered funds" messaging
-- CTA to get started
+### 4. Update Settings page
+Replace `DashboardNav` with `AppNav` in `src/pages/Settings.tsx` (or redirect to `/app-settings`).
 
-### 3. Dashboard (/dashboard)
+### 5. Update Landing page links
+Update `LandingNav.tsx` "Login" and "Get Started" buttons to link to `/agent` instead of `/dashboard`.
 
-**Navigation Bar**
-- Recoverly logo with cyan dot accent
-- Dashboard | Claims | Settings navigation
-- User avatar dropdown
+### 6. Redirect `/dashboard` to `/agent`
+Make `/dashboard` redirect to `/agent` so existing links still work.
 
-**Hero Stats Row (3 cards)**
-- **Recovered**: $4,247.83 in glowing cyan with celebration styling
-- **Pending**: $892.40 in coral, showing claims under review
-- **Ready to File**: $1,156.20 in white with action link
-
-**Recovery Trend Chart**
-- Recharts area chart with cyan gradient fill
-- 6-month timeline
-- Dark grid lines, hover tooltips
-
-**Recent Activity Feed**
-- Refund deposits, approvals, pending reviews
-- Status icons (cyan checks, coral clocks)
-- Timestamps and amounts
-
-**Issue Breakdown**
-- Horizontal bar chart showing recovery by category
-- Cyan-filled progress bars
-
-**Carrier Performance**
-- UPS, FedEx, USPS with success rates
-- Color-coded bars (cyan for good, coral for needs attention)
-
-**Insight Card**
-- Actionable recommendation with lightbulb icon
-- Cyan left border accent
-
----
-
-## Phase 2: Additional Pages (Next Iteration)
-
-After validating the core pages, we'll add:
-- **Claims List** (/claims) - Filterable table with status badges
-- **Claim Detail** (/claims/[id]) - Full shipment and resolution timeline
-- **Onboarding** (/onboarding) - 3-step store/carrier connection flow
-- **Settings** (/settings) - Connections, billing, and notifications
-
----
-
-## Design Details
-
-**Animations & Polish**
-- Subtle glow effects on money amounts
-- Smooth hover state transitions
-- Chart draw-in animations on load
-- Skeleton loading states with cyan shimmer
-
-**Responsive Design**
-- Mobile-optimized layouts
-- Touch-friendly card sizing
-- Collapsible navigation
-
-**Mock Data**
-- Realistic shipping claim examples
-- Varied carrier and issue types
-- Believable dollar amounts and dates
+This ensures every page uses the same nav bar with access to the full agent-first experience.
