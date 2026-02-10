@@ -64,6 +64,9 @@ export default {
           elevated: "hsl(var(--surface-elevated))",
         },
         coral: "hsl(var(--coral))",
+        amber: "hsl(var(--amber))",
+        emerald: "hsl(var(--emerald))",
+        "agent-blue": "hsl(var(--agent-blue))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -82,6 +85,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -108,9 +112,25 @@ export default {
           "0%": { opacity: "0", transform: "translateY(20px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-in-right": {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
+        "slide-out-right": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(100%)" },
+        },
         "glow-pulse": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(172 100% 45% / 0.3)" },
-          "50%": { boxShadow: "0 0 40px hsl(172 100% 45% / 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px hsl(160 84% 39% / 0.3)" },
+          "50%": { boxShadow: "0 0 40px hsl(160 84% 39% / 0.5)" },
+        },
+        "confetti-fall": {
+          "0%": { transform: "translateY(-100%) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateY(100vh) rotate(720deg)", opacity: "0" },
+        },
+        "count-up-number": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
@@ -120,12 +140,19 @@ export default {
         "fade-out": "fade-out 0.3s ease-out forwards",
         "scale-in": "scale-in 0.3s ease-out forwards",
         "slide-up": "slide-up 0.6s ease-out forwards",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
+        "slide-out-right": "slide-out-right 0.3s ease-out",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "confetti-fall": "confetti-fall 2s ease-in forwards",
+        "count-up": "count-up-number 0.6s ease-out forwards",
       },
       boxShadow: {
-        "glow-sm": "0 0 15px hsl(172 100% 45% / 0.3)",
-        "glow-md": "0 0 25px hsl(172 100% 45% / 0.4)",
-        "glow-lg": "0 0 40px hsl(172 100% 45% / 0.5)",
+        "glow-sm": "0 0 15px hsl(160 84% 39% / 0.3)",
+        "glow-md": "0 0 25px hsl(160 84% 39% / 0.4)",
+        "glow-lg": "0 0 40px hsl(160 84% 39% / 0.5)",
+        "glow-amber": "0 0 20px hsl(38 92% 50% / 0.3)",
+        "glow-blue": "0 0 20px hsl(217 91% 60% / 0.3)",
+        "glow-red": "0 0 20px hsl(0 84% 60% / 0.3)",
       },
     },
   },
