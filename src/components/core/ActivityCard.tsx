@@ -12,6 +12,23 @@ interface ActivityCardProps {
   onHold?: (id: string) => void;
 }
 
+function formatDeadline(deadline: string): { text: string; urgent: boolean; passed: boolean } {
+  const now = new Date();
+  const dl = new Date(deadline);
+  const diffMs = dl.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+  if (diffMs < 0) {
+    return { text: "Deadline passed", urgent: false, passed: true };
+  }
+  if (diffHours <= 48) {
+    return { text: `Urgent: ${diffHours}h left`, urgent: true, passed: false };
+  }
+  const formatted = dl.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return { text: `Deadline: ${formatted} (${diffDays} days)`, urgent: diffDays <= 7, passed: false };
+}
+
 const ActivityCard = ({ caseData, onApprove, onHold }: ActivityCardProps) => {
   const navigate = useNavigate();
   const [swipeX, setSwipeX] = useState(0);
@@ -44,9 +61,7 @@ const ActivityCard = ({ caseData, onApprove, onHold }: ActivityCardProps) => {
     setSwipeX(0);
   }, [swipeX, onApprove, onHold, caseData.id]);
 
-  const daysUntilDeadline = Math.ceil(
-    (new Date(caseData.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
+  const deadlineInfo = formatDeadline(caseData.deadline);
 
   return (
     <div className="relative overflow-hidden rounded-xl">
@@ -115,13 +130,12 @@ const ActivityCard = ({ caseData, onApprove, onHold }: ActivityCardProps) => {
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>{caseData.shopify_order.customer_name}</span>
-            {daysUntilDeadline > 0 ? (
-              <span className={daysUntilDeadline <= 3 ? "text-amber font-medium" : ""}>
-                {daysUntilDeadline}d until deadline
-              </span>
-            ) : (
-              <span className="text-destructive font-medium">Deadline passed</span>
-            )}
+            <span className={
+              deadlineInfo.passed ? "text-destructive font-medium" :
+              deadlineInfo.urgent ? "text-amber font-medium" : ""
+            }>
+              {deadlineInfo.text}
+            </span>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </div>

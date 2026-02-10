@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Settings as SettingsIcon, User, Bell, Sparkles, Monitor } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Sparkles, Monitor, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import AppNav from "@/components/navigation/AppNav";
 import { Switch } from "@/components/ui/switch";
 
 const AppSettings = () => {
+  const { theme, setTheme } = useTheme();
   const [reducedMotion, setReducedMotion] = useState(false);
   const [confetti, setConfetti] = useState(true);
   const [confettiStyle, setConfettiStyle] = useState<"subtle" | "full">("subtle");
@@ -32,6 +34,18 @@ const AppSettings = () => {
               <h3 className="text-sm font-semibold text-foreground">Appearance</h3>
             </div>
             <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground flex items-center gap-2">
+                    <Moon className="h-4 w-4" /> Dark mode
+                  </p>
+                  <p className="text-xs text-muted-foreground">Switch between dark and light themes</p>
+                </div>
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                />
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-foreground">Reduced motion</p>

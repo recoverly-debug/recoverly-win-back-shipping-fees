@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
-import { Sparkles, TrendingUp, ArrowRight, RefreshCw } from "lucide-react";
+import { Sparkles, RefreshCw } from "lucide-react";
 import AppNav from "@/components/navigation/AppNav";
 import StatusCard from "@/components/core/StatusCard";
 import ActivityCard from "@/components/core/ActivityCard";
 import UndoToast from "@/components/core/UndoToast";
-import { allCases, getTotalRecovery, getPipelineTotal, getReadyCases, getNeedsAttentionCases } from "@/lib/case-data";
+import { allCases, getTotalRecovery, getPipelineTotal, getReadyCases, getNeedsAttentionCases, getFoundCases, getFoundTotal, formatMoney } from "@/lib/case-data";
 import type { Case } from "@/lib/case-data";
 
 const AgentHome = () => {
@@ -16,6 +16,8 @@ const AgentHome = () => {
   const pipelineTotal = getPipelineTotal();
   const readyCases = getReadyCases();
   const needsAttention = getNeedsAttentionCases();
+  const foundCases = getFoundCases();
+  const foundTotal = getFoundTotal();
 
   const handleApprove = useCallback((id: string) => {
     const original = [...cases];
@@ -49,7 +51,9 @@ const AgentHome = () => {
             <Sparkles className="h-5 w-5 text-agent-blue" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">I found 3 new issues worth $847.</h1>
+            <h1 className="text-lg font-bold text-foreground">
+              I found {foundCases.length} new issues worth {formatMoney(foundTotal)}.
+            </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {readyCases.length} ready to file • {needsAttention.length} need attention
             </p>
@@ -58,8 +62,8 @@ const AgentHome = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <StatusCard label="Recovered" value={totalRecovery} icon="money" glowColor="emerald" trend="+12% this month" />
-          <StatusCard label="Pipeline" value={pipelineTotal} subValue={`${cases.length} cases`} icon="trending" glowColor="blue" />
+          <StatusCard label="Recovered" value={formatMoney(totalRecovery)} icon="money" glowColor="emerald" trend="+12% this month" />
+          <StatusCard label="Pipeline" value={formatMoney(pipelineTotal)} subValue={`${cases.length} cases`} icon="trending" glowColor="blue" />
           <StatusCard label="Ready to File" value={readyCases.length} icon="check" glowColor="emerald" />
           <StatusCard label="Needs Attention" value={needsAttention.length} icon="alert" glowColor="amber" />
         </div>
