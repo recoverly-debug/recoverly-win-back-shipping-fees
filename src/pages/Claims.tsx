@@ -38,9 +38,8 @@ const Claims = () => {
     .filter((c) => c.status === "approved")
     .reduce((sum, c) => sum + c.amount, 0);
 
-  const successRate = Math.round(
-    (claimsData.filter((c) => c.status === "approved").length / claimsData.length) * 100
-  );
+  const submittedCount = claimsData.filter((c) => c.status === "submitted").length;
+  const needsEvidenceCount = claimsData.filter((c) => c.status === "detected").length;
 
   // Reset to page 1 when filters change
   const handleStatusChange = (val: ClaimStatus | "all") => {
@@ -66,7 +65,8 @@ const Claims = () => {
           <ClaimsStatsBar
             total={claimsData.length}
             recovered={Math.round(totalRecovered)}
-            successRate={successRate}
+            submitted={submittedCount}
+            needsEvidence={needsEvidenceCount}
           />
         </div>
 
