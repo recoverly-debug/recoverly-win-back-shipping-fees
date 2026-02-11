@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import AppNav from "@/components/navigation/AppNav";
+import BottomNav from "@/components/navigation/BottomNav";
+import Logo from "@/components/Logo";
 import { allCases, statusConfig, laneConfig, carrierConfig } from "@/lib/case-data";
 import type { CaseStatus, CaseLane, CaseCarrier } from "@/lib/case-data";
 
@@ -48,8 +49,10 @@ const RecoveryReport = () => {
   const pieColors = ["hsl(160, 84%, 39%)", "hsl(38, 92%, 50%)", "hsl(217, 91%, 60%)", "hsl(0, 84%, 60%)"];
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppNav />
+    <div className="min-h-screen bg-background pb-20">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-lg border-b border-border">
+        <div className="container px-4 h-14 flex items-center"><Logo /></div>
+      </header>
       <main className="container px-4 py-6 max-w-3xl mx-auto">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-foreground">Recovery Report</h1>
@@ -139,6 +142,7 @@ const RecoveryReport = () => {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 };

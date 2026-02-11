@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Check, Pause, MessageSquare, Camera, Package, ImagePlus } from "lucide-react";
-import AppNav from "@/components/navigation/AppNav";
+import BottomNav from "@/components/navigation/BottomNav";
 import MoneyBadge from "@/components/core/MoneyBadge";
 import ReceiptStrip from "@/components/core/ReceiptStrip";
 import CaseTimeline from "@/components/core/CaseTimeline";
@@ -33,14 +33,19 @@ const CaseDetail = () => {
 
   if (!caseData) {
     return (
-      <div className="min-h-screen bg-background">
-        <AppNav />
+      <div className="min-h-screen bg-background pb-20">
+        <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-lg border-b border-border">
+          <div className="container px-4 h-14 flex items-center">
+            <button onClick={() => navigate(-1)} className="text-sm text-muted-foreground hover:text-foreground">← Back</button>
+          </div>
+        </header>
         <main className="container px-4 py-20 text-center">
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-xl font-bold text-foreground mb-2">Case not found</h1>
           <p className="text-muted-foreground mb-6">The case you're looking for doesn't exist.</p>
-          <button onClick={() => navigate("/agent")} className="text-primary hover:underline text-sm">Back to Agent Home</button>
+          <button onClick={() => navigate("/agent")} className="text-primary hover:underline text-sm">Back to Home</button>
         </main>
+        <BottomNav />
       </div>
     );
   }
@@ -100,14 +105,16 @@ const CaseDetail = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppNav />
+    <div className="min-h-screen bg-background pb-20">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-lg border-b border-border">
+        <div className="container px-4 h-14 flex items-center">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        </div>
+      </header>
 
-      <main className="container px-4 py-6 max-w-2xl mx-auto">
-        {/* Back */}
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
+      <main className="container px-4 py-6 max-w-lg mx-auto">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
@@ -264,6 +271,8 @@ const CaseDetail = () => {
           </button>
         </div>
       </main>
+
+      <BottomNav />
 
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} caseId={caseData.id} />
 

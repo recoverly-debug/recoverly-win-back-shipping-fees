@@ -1,15 +1,17 @@
-import { useState, useCallback, useMemo } from "react";
-import { Sparkles, RefreshCw, Radio, Clock, Check, Eye, FileText, Mail, Upload, AlertTriangle, ChevronRight, Loader2, Shield } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { Sparkles, RefreshCw, Radio, Clock, Check, Eye, FileText, Mail, Upload, AlertTriangle, ChevronDown, ChevronUp, Loader2, Shield, Camera, ImagePlus, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import AppNav from "@/components/navigation/AppNav";
-import StatusCard from "@/components/core/StatusCard";
-import ActivityCard from "@/components/core/ActivityCard";
+import BottomNav from "@/components/navigation/BottomNav";
+import Logo from "@/components/Logo";
 import MoneyBadge from "@/components/core/MoneyBadge";
 import ReceiptStrip from "@/components/core/ReceiptStrip";
 import PacketViewer from "@/components/core/PacketViewer";
 import UndoToast from "@/components/core/UndoToast";
+import RequestPhotosModal from "@/components/core/RequestPhotosModal";
+import ActivityCard from "@/components/core/ActivityCard";
 import { allCases, formatMoney, statusConfig } from "@/lib/case-data";
 import type { Case, CaseStatus, EvidenceType } from "@/lib/case-data";
+import { toast } from "@/hooks/use-toast";
 
 const expectedEvidence: Record<string, EvidenceType[]> = {
   OVERCHARGE: ["SHIPSTATION_LABEL", "SHIPSTATION_SHIPMENT", "CARRIER_INVOICE_LINE", "ADJUSTMENT_LINE"],
@@ -49,27 +51,36 @@ function getDeadlineUrgency(deadline: string): "urgent" | "moderate" | "comforta
 }
 
 type PlanItem = {
-  type: "approve" | "evidence" | "invoice" | "urgent";
-  caseData: Case;
+  type: "approve" | "evidence" | "invoice";
+  cases: Case[];
   title: string;
   subtitle: string;
   primaryAction: string;
   urgencyLabel: string;
+  totalAmount: number;
 };
 
 function buildPlanItems(cases: Case[]): PlanItem[] {
   const items: PlanItem[] = [];
 
-  // A) Approve & submit — READY cases with HIGH confidence
+  // A) Approve & submit — READY cases with HIGH confidence (batchable)
   const readyHigh = cases.filter(c => c.status === "READY" && c.confidence_label === "HIGH");
-  if (readyHigh.length > 0) {
+  // Also include FOUND with high confidence
+  const foundHigh = cases.filter(c => c.status === "FOUND" && c.confidence_label === "HIGH");
+  const approvable = [...readyHigh, ...foundHigh];
+  if (approvable.length > 0) {
+    const total = approvable.reduce((s, c) => s + c.amount, 0);
+    const earliest = approvable.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())[0];
     items.push({
       type: "approve",
-      caseData: readyHigh[0],
-      title: `Approve & submit ${readyHigh.length} case${readyHigh.length > 1 ? "s" : ""}`,
-      subtitle: `${formatMoney(readyHigh.reduce((s, c) => s + c.amount, 0))} ready with high confidence`,
-      primaryAction: "Approve & Submit",
-      urgencyLabel: formatDeadlineShort(readyHigh.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())[0].deadline),
+      cases: approvable,
+      title: approvable.length === 1
+        ? `Approve & submit 1 claim`
+        : `Approve & submit ${approvable.length} claims`,
+      subtitle: `${formatMoney(total)} ready with high confidence`,
+      primaryAction: approvable.length > 1 ? "Approve & Submit All" : "Approve & Submit",
+      urgencyLabel: formatDeadlineShort(earliest.deadline),
+      totalAmount: total,
     });
   }
 
@@ -78,11 +89,12 @@ function buildPlanItems(cases: Case[]): PlanItem[] {
   needsEvidence.forEach(c => {
     items.push({
       type: "evidence",
-      caseData: c,
+      cases: [c],
       title: "Request evidence from customer",
       subtitle: `${c.shopify_order.order_number} — ${c.shopify_order.customer_name}`,
       primaryAction: "Request Photos",
       urgencyLabel: formatDeadlineShort(c.deadline),
+      totalAmount: c.amount,
     });
   });
 
@@ -90,57 +102,26 @@ function buildPlanItems(cases: Case[]): PlanItem[] {
   const overchargeNoInvoice = cases.filter(c =>
     c.lane === "OVERCHARGE" &&
     c.status === "FOUND" &&
+    c.confidence_label !== "HIGH" &&
     !c.evidence.some(e => e.type === "CARRIER_INVOICE_LINE")
   );
-  overchargeNoInvoice.forEach(c => {
+  if (overchargeNoInvoice.length > 0) {
     items.push({
       type: "invoice",
-      caseData: c,
-      title: "Upload invoice to confirm",
-      subtitle: `${c.shopify_order.order_number} — missing carrier invoice`,
+      cases: overchargeNoInvoice,
+      title: `Upload invoice to confirm ${overchargeNoInvoice.length} case${overchargeNoInvoice.length > 1 ? "s" : ""}`,
+      subtitle: "Missing carrier invoice — optional enrichment",
       primaryAction: "Upload Invoice",
-      urgencyLabel: formatDeadlineShort(c.deadline),
+      urgencyLabel: formatDeadlineShort(overchargeNoInvoice[0].deadline),
+      totalAmount: overchargeNoInvoice.reduce((s, c) => s + c.amount, 0),
     });
-  });
+  }
 
-  // D) Urgent deadlines (found or ready, <=3 days)
-  const urgentCases = cases.filter(c =>
-    ["FOUND", "READY"].includes(c.status) &&
-    getDeadlineUrgency(c.deadline) === "urgent" &&
-    !items.some(i => i.caseData.id === c.id)
-  );
-  urgentCases.forEach(c => {
-    items.push({
-      type: "urgent",
-      caseData: c,
-      title: "Review urgent deadline",
-      subtitle: `${c.id} — deadline approaching`,
-      primaryAction: "Review Case",
-      urgencyLabel: formatDeadlineShort(c.deadline),
-    });
-  });
-
-  // Also add READY med-confidence or FOUND cases not yet covered
-  const readyMed = cases.filter(c =>
-    c.status === "READY" && c.confidence_label !== "HIGH" &&
-    !items.some(i => i.caseData.id === c.id)
-  );
-  readyMed.forEach(c => {
-    items.push({
-      type: "approve",
-      caseData: c,
-      title: "Review & submit",
-      subtitle: `${c.shopify_order.order_number} — ${c.confidence_label.toLowerCase()} confidence`,
-      primaryAction: "Approve & Submit",
-      urgencyLabel: formatDeadlineShort(c.deadline),
-    });
-  });
-
-  return items.slice(0, 4);
+  return items.slice(0, 3);
 }
 
-// Guided approval flow step
-type ApprovalStep = "preview" | "executing" | "done";
+// Guided flow types
+type FlowStep = "idle" | "review" | "executing" | "done";
 
 const AgentHome = () => {
   const navigate = useNavigate();
@@ -148,51 +129,47 @@ const AgentHome = () => {
   const [undoAction, setUndoAction] = useState<{ message: string; undo: () => void } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshPhase, setRefreshPhase] = useState<string | null>(null);
+  const [triggersExpanded, setTriggersExpanded] = useState(false);
   const [invoiceFeedConnected, setInvoiceFeedConnected] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [filter, setFilter] = useState<"all" | CaseStatus | "actionable">("all");
+  const [showAllCases, setShowAllCases] = useState(false);
 
-  // Guided approval state
-  const [guidedCase, setGuidedCase] = useState<Case | null>(null);
-  const [approvalStep, setApprovalStep] = useState<ApprovalStep>("preview");
+  // Guided flow state
+  const [flowStep, setFlowStep] = useState<FlowStep>("idle");
+  const [flowPlanItems, setFlowPlanItems] = useState<PlanItem[]>([]);
+  const [flowCurrentIdx, setFlowCurrentIdx] = useState(0);
+  const [batchExpanded, setBatchExpanded] = useState(false);
+
+  // Photo request state
+  const [photosModalCase, setPhotosModalCase] = useState<Case | null>(null);
 
   // Packet viewer state
   const [packetCase, setPacketCase] = useState<Case | null>(null);
 
-  const totalRecovery = useMemo(() => cases.filter(c => ["APPROVED", "PAID"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
+  // Computed metrics
   const pipelineTotal = useMemo(() => cases.filter(c => !["PAID", "UNRECOVERABLE"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
-  const readyCases = useMemo(() => cases.filter(c => ["FOUND", "READY"].includes(c.status)), [cases]);
-  const needsAttention = useMemo(() => cases.filter(c => ["NEEDS_EVIDENCE", "DENIED"].includes(c.status)), [cases]);
-  const foundCases = useMemo(() => cases.filter(c => c.status === "FOUND"), [cases]);
-  const foundTotal = useMemo(() => foundCases.reduce((sum, c) => sum + c.amount, 0), [foundCases]);
+  const needsAttentionCount = useMemo(() => cases.filter(c => ["NEEDS_EVIDENCE", "DENIED"].includes(c.status)).length, [cases]);
+  const recoveredTotal = useMemo(() => cases.filter(c => ["APPROVED", "PAID"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
 
   const planItems = useMemo(() => buildPlanItems(cases), [cases]);
+  const updateCount = 3; // mock
 
-  const filteredCases = useMemo(() => {
-    if (filter === "all") return cases;
-    if (filter === "actionable") return cases.filter(c => ["FOUND", "READY", "NEEDS_EVIDENCE"].includes(c.status));
-    return cases.filter(c => c.status === filter);
-  }, [cases, filter]);
-
-  const handleApprove = useCallback((id: string) => {
+  const handleApprove = useCallback((ids: string[]) => {
     const original = [...cases];
-    setCases(prev => prev.map(c => (c.id === id ? { ...c, status: "SUBMITTED" as const } : c)));
+    setCases(prev => prev.map(c => ids.includes(c.id) ? { ...c, status: "SUBMITTED" as const } : c));
     setUndoAction({
-      message: `Case ${id} approved and submitted.`,
+      message: `${ids.length} case${ids.length > 1 ? "s" : ""} submitted.`,
       undo: () => setCases(original),
     });
   }, [cases]);
 
   const handleHold = useCallback((id: string) => {
-    setUndoAction({
-      message: `Case ${id} placed on hold.`,
-      undo: () => {},
-    });
+    setUndoAction({ message: `Case ${id} placed on hold.`, undo: () => {} });
   }, []);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    const phases = ["Processing new events…", "Updating cases…", "Re-ranking Today's plan…"];
+    const phases = ["Processing new events…", "Updating cases…", "Re-ranking today's plan…"];
     let idx = 0;
     setRefreshPhase(phases[0]);
     const interval = setInterval(() => {
@@ -207,77 +184,128 @@ const AgentHome = () => {
     }, 600);
   }, []);
 
-  // Guided approval flow
-  const startGuidedApproval = (caseData: Case) => {
-    setGuidedCase(caseData);
-    setApprovalStep("preview");
+  // "Run today's plan" guided flow
+  const startPlanFlow = () => {
+    setFlowPlanItems(planItems);
+    setFlowCurrentIdx(0);
+    setFlowStep("review");
+    setBatchExpanded(false);
   };
 
-  const executeGuidedApproval = () => {
-    if (!guidedCase) return;
-    setApprovalStep("executing");
-    setTimeout(() => {
-      setApprovalStep("done");
-      handleApprove(guidedCase.id);
-      setTimeout(() => {
-        setGuidedCase(null);
-        setApprovalStep("preview");
-      }, 2000);
-    }, 2500);
-  };
+  const executeCurrentItem = () => {
+    const item = flowPlanItems[flowCurrentIdx];
+    if (!item) return;
 
-  const handlePlanAction = (item: PlanItem) => {
     if (item.type === "approve") {
-      startGuidedApproval(item.caseData);
+      setFlowStep("executing");
+      setTimeout(() => {
+        handleApprove(item.cases.map(c => c.id));
+        setFlowStep("done");
+      }, 2500);
     } else if (item.type === "evidence") {
-      navigate(`/case/${item.caseData.id}`);
+      setPhotosModalCase(item.cases[0]);
     } else if (item.type === "invoice") {
       setShowInvoiceModal(true);
-    } else if (item.type === "urgent") {
-      navigate(`/case/${item.caseData.id}`);
     }
   };
 
-  const planTypeIcons = {
-    approve: Check,
-    evidence: AlertTriangle,
-    invoice: FileText,
-    urgent: Clock,
+  const advanceFlow = () => {
+    if (flowCurrentIdx < flowPlanItems.length - 1) {
+      setFlowCurrentIdx(prev => prev + 1);
+      setFlowStep("review");
+      setBatchExpanded(false);
+    } else {
+      // done — show summary
+      setFlowStep("done");
+    }
   };
 
-  const planTypeColors = {
-    approve: "text-primary bg-primary/10",
-    evidence: "text-amber bg-amber/10",
-    invoice: "text-agent-blue bg-agent-blue/10",
-    urgent: "text-destructive bg-destructive/10",
+  const closeFlow = () => {
+    setFlowStep("idle");
+    setFlowPlanItems([]);
+    setFlowCurrentIdx(0);
   };
+
+  const handleMarkPhotosReceived = (caseData: Case) => {
+    setCases(prev => prev.map(c => {
+      if (c.id !== caseData.id) return c;
+      return {
+        ...c,
+        status: "READY" as const,
+        confidence_label: "MEDIUM" as const,
+        confidence_reason: "Medium — 4 of 4 core evidence items present. Customer photos received.",
+        evidence: [
+          ...c.evidence,
+          { type: "PHOTOS" as const, source: "UPLOAD" as const, file_ref: "customer-photos.zip", summary: "5 photos: damaged item (3), packaging condition (2)." },
+        ],
+        timeline: [
+          ...c.timeline,
+          { ts: new Date().toISOString(), event: "Evidence received", note: "Customer provided 5 damage photos.", actor: "USER" as const },
+          { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for submission.", actor: "AGENT" as const },
+        ],
+      };
+    }));
+    toast({ title: "Photos received", description: "Case updated to Ready." });
+    // Advance flow if in guided mode
+    if (flowStep === "review") {
+      setTimeout(advanceFlow, 500);
+    }
+  };
+
+  const planTypeIcons = { approve: Check, evidence: Camera, invoice: FileText };
+  const planTypeColors = { approve: "text-primary bg-primary/10", evidence: "text-amber bg-amber/10", invoice: "text-agent-blue bg-agent-blue/10" };
+
+  // Flow summary
+  const flowSummary = useMemo(() => {
+    const submitted = cases.filter(c => c.status === "SUBMITTED").length;
+    const waiting = cases.filter(c => c.status === "NEEDS_EVIDENCE").length;
+    return { submitted, waiting };
+  }, [cases]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppNav />
+    <div className="min-h-screen bg-background pb-20">
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-lg border-b border-border">
+        <div className="container px-4 h-14 flex items-center justify-between">
+          <Logo />
+          <button onClick={handleRefresh} className="p-2 rounded-lg hover:bg-accent transition-colors">
+            <RefreshCw className={`h-4 w-4 text-muted-foreground ${isRefreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      </header>
 
-      <main className="container px-4 py-6 max-w-2xl mx-auto">
-        {/* Header: Ongoing Audit */}
-        <div className="flex items-start justify-between mb-2">
-          <div>
+      <main className="container px-4 py-5 max-w-lg mx-auto">
+        {/* Zone A — Minimal header */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-1">
             <h1 className="text-xl font-bold text-foreground">Ongoing Audit</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Monitoring shipments and carrier charges in the background.</p>
-          </div>
-          <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-              <span className="h-2 w-2 rounded-full bg-primary pulse-emerald" />
-              Monitoring: ON
+              <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-emerald" />
+              ON
             </span>
           </div>
-        </div>
+          <p className="text-xs text-muted-foreground">Monitoring: ON · Last sync: 2m ago</p>
 
-        {/* Sync info */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6">
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Last sync: 2m ago</span>
-          <span>Updates since your last review: 17h ago</span>
-          <button onClick={handleRefresh} className="ml-auto p-1.5 rounded-lg hover:bg-accent transition-colors">
-            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${isRefreshing ? "animate-spin" : ""}`} />
+          {/* Collapsible triggers */}
+          <button
+            onClick={() => setTriggersExpanded(!triggersExpanded)}
+            className="flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+          >
+            {updateCount} updates since your last review
+            {triggersExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
+
+          {triggersExpanded && (
+            <div className="mt-2 space-y-1 animate-fade-in">
+              {recentTriggers.map((trigger, idx) => (
+                <div key={idx} className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
+                  <trigger.icon className="h-3 w-3 text-agent-blue shrink-0" />
+                  <span className="flex-1">{trigger.text}</span>
+                  <span className="text-muted-foreground/50">{trigger.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Refresh animation */}
@@ -290,111 +318,55 @@ const AgentHome = () => {
           </div>
         )}
 
-        {/* Invoice Feed Status */}
-        <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <span className="text-foreground font-medium">Invoice feed:</span>
-            {invoiceFeedConnected ? (
-              <span className="text-primary text-xs">Connected — invoices@recoverly.ai</span>
-            ) : (
-              <span className="text-muted-foreground text-xs">Not connected</span>
-            )}
-          </div>
-          {!invoiceFeedConnected ? (
+        {/* Zone B — Primary CTA + Today's Plan */}
+        <div className="mb-5">
+          {planItems.length > 0 && (
             <button
-              onClick={() => setShowInvoiceModal(true)}
-              className="px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10 transition-colors"
+              onClick={startPlanFlow}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold glow-hover transition-all flex items-center justify-center gap-2 mb-4 text-sm"
             >
-              Connect
-            </button>
-          ) : (
-            <button onClick={() => setShowInvoiceModal(true)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Settings
+              <Sparkles className="h-4 w-4" /> Run today's plan
             </button>
           )}
-        </div>
 
-        {/* Recent Triggers */}
-        <div className="mb-6">
-          <h3 className="label-caps mb-2">Recent triggers</h3>
-          <div className="space-y-1.5">
-            {recentTriggers.map((trigger, idx) => (
-              <div key={idx} className="flex items-center gap-2.5 py-1.5 text-xs text-muted-foreground">
-                <trigger.icon className="h-3.5 w-3.5 text-agent-blue shrink-0" />
-                <span className="flex-1">{trigger.text}</span>
-                <span className="text-muted-foreground/60">{trigger.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Today's Plan */}
-        <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-foreground">Today's plan</h2>
+            <h2 className="text-sm font-semibold text-foreground">Today's plan</h2>
             <span className="text-xs text-muted-foreground">{planItems.length} items</span>
           </div>
-          <div className="space-y-3">
+
+          <div className="space-y-2">
             {planItems.map((item, idx) => {
               const Icon = planTypeIcons[item.type];
               const colorClass = planTypeColors[item.type];
-              const urgency = getDeadlineUrgency(item.caseData.deadline);
+              const urgency = getDeadlineUrgency(item.cases[0].deadline);
               return (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
+                <div key={idx} className="p-3 rounded-xl border border-border bg-card">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-                        <MoneyBadge amount={item.caseData.amount} status={item.caseData.status} size="sm" />
+                        <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
+                        <MoneyBadge amount={item.totalAmount} status={item.cases[0].status} size="sm" />
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <span className={`text-xs font-medium ${
-                          urgency === "urgent" ? "text-destructive" :
-                          urgency === "moderate" ? "text-amber" :
-                          urgency === "passed" ? "text-destructive" : "text-muted-foreground"
-                        }`}>
-                          {item.urgencyLabel}
-                        </span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                          item.caseData.confidence_label === "HIGH" ? "bg-primary/10 text-primary" :
-                          item.caseData.confidence_label === "MEDIUM" ? "bg-amber/10 text-amber" :
-                          "bg-destructive/10 text-destructive"
-                        }`}>
-                          {item.caseData.confidence_label}
-                        </span>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className={`text-[10px] font-medium ${
+                          urgency === "urgent" ? "text-destructive" : urgency === "moderate" ? "text-amber" : "text-muted-foreground"
+                        }`}>{item.urgencyLabel}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          item.cases[0].confidence_label === "HIGH" ? "bg-primary/10 text-primary" :
+                          item.cases[0].confidence_label === "MEDIUM" ? "bg-amber/10 text-amber" : "bg-destructive/10 text-destructive"
+                        }`}>{item.cases[0].confidence_label}</span>
+                        <button
+                          onClick={() => setPacketCase(item.cases[0])}
+                          className="text-[10px] text-primary hover:underline flex items-center gap-0.5 ml-auto"
+                        >
+                          <Eye className="h-3 w-3" /> View proof
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Condensed ReceiptStrip */}
-                  <ReceiptStrip
-                    caseData={item.caseData}
-                    onViewPacket={() => setPacketCase(item.caseData)}
-                    compact
-                  />
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 mt-3">
-                    <button
-                      onClick={() => handlePlanAction(item)}
-                      className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <Icon className="h-3.5 w-3.5" /> {item.primaryAction}
-                    </button>
-                    <button
-                      onClick={() => setPacketCase(item.caseData)}
-                      className="py-2 px-3 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-accent transition-colors flex items-center gap-1.5"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> View proof
-                    </button>
                   </div>
                 </div>
               );
@@ -402,137 +374,267 @@ const AgentHome = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <StatusCard label="Recovered" value={formatMoney(totalRecovery)} icon="money" glowColor="emerald" />
-          <StatusCard label="Pipeline" value={formatMoney(pipelineTotal)} subValue={`${cases.length} cases`} icon="trending" glowColor="blue" />
-          <StatusCard label="Ready to File" value={readyCases.length} icon="check" glowColor="emerald" />
-          <StatusCard label="Needs Attention" value={needsAttention.length} icon="alert" glowColor="amber" />
+        {/* Compact metrics row */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-5 px-1">
+          <span>Pipeline <span className="text-foreground font-semibold">{formatMoney(pipelineTotal)}</span></span>
+          <span className="text-border">·</span>
+          <span>Needs attention <span className="text-foreground font-semibold">{needsAttentionCount}</span></span>
+          <span className="text-border">·</span>
+          <span>Recovered <span className="text-primary font-semibold">{formatMoney(recoveredTotal)}</span></span>
         </div>
 
-        {/* All Cases */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-foreground">All cases</h2>
+        {/* Invoice Feed Status */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card mb-5">
+          <div className="flex items-center gap-2 text-xs">
+            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-foreground font-medium">Invoice feed:</span>
+            {invoiceFeedConnected ? (
+              <span className="text-primary">Connected</span>
+            ) : (
+              <span className="text-muted-foreground">Not connected</span>
+            )}
+          </div>
+          <button
+            onClick={() => setShowInvoiceModal(true)}
+            className="px-2.5 py-1 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/10 transition-colors"
+          >
+            {invoiceFeedConnected ? "Settings" : "Connect"}
+          </button>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-          {([
-            { label: "All", value: "all" },
-            { label: "Actionable", value: "actionable" },
-            { label: "Found", value: "FOUND" },
-            { label: "Ready", value: "READY" },
-            { label: "Submitted", value: "SUBMITTED" },
-            { label: "Paid", value: "PAID" },
-          ] as { label: string; value: typeof filter }[]).map(f => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                filter === f.value ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {/* Zone C — All cases (collapsed by default) */}
+        <button
+          onClick={() => setShowAllCases(!showAllCases)}
+          className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors flex items-center justify-center gap-1.5 mb-4"
+        >
+          {showAllCases ? "Hide all cases" : `View all ${cases.length} cases`}
+          {showAllCases ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
 
-        {/* Activity Feed */}
-        <div className="space-y-3">
-          {filteredCases.map(c => (
-            <ActivityCard
-              key={c.id}
-              caseData={c}
-              onApprove={handleApprove}
-              onHold={handleHold}
-            />
-          ))}
-        </div>
+        {showAllCases && (
+          <div className="space-y-2 animate-fade-in">
+            {cases.map(c => (
+              <ActivityCard key={c.id} caseData={c} onApprove={(id) => handleApprove([id])} onHold={handleHold} />
+            ))}
+          </div>
+        )}
       </main>
 
-      {/* Guided Approval Modal */}
-      {guidedCase && (
+      <BottomNav />
+
+      {/* ===== GUIDED FLOW MODAL ===== */}
+      {flowStep !== "idle" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => { setGuidedCase(null); setApprovalStep("preview"); }} />
-          <div className="relative w-full max-w-lg bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-lg p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
-            {approvalStep === "preview" && (
-              <>
-                <h2 className="text-lg font-bold text-foreground mb-1">Approve & Submit</h2>
-                <p className="text-sm text-muted-foreground mb-4">Review before submitting via ShipStation claim flow.</p>
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={closeFlow} />
+          <div className="relative w-full max-w-lg bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
+            <div className="p-5">
+              {/* Flow: Review step */}
+              {flowStep === "review" && flowPlanItems[flowCurrentIdx] && (() => {
+                const item = flowPlanItems[flowCurrentIdx];
+                const Icon = planTypeIcons[item.type];
+                const isBatch = item.type === "approve" && item.cases.length >= 3;
 
-                <div className="p-4 rounded-xl border border-border bg-surface/40 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusConfig[guidedCase.status].bgColor} ${statusConfig[guidedCase.status].color}`}>
-                        {statusConfig[guidedCase.status].label}
-                      </span>
-                      <span className="text-sm font-medium text-foreground">{guidedCase.id}</span>
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Step {flowCurrentIdx + 1} of {flowPlanItems.length}</span>
+                      <button onClick={closeFlow} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                     </div>
-                    <MoneyBadge amount={guidedCase.amount} status={guidedCase.status} size="sm" />
+                    <h2 className="text-lg font-bold text-foreground mb-1">{item.title}</h2>
+                    <p className="text-sm text-muted-foreground mb-4">{item.subtitle}</p>
+
+                    {/* Approve flow */}
+                    {item.type === "approve" && (
+                      <>
+                        {isBatch ? (
+                          /* Batch header for 3+ */
+                          <div className="rounded-xl border border-border bg-surface/40 mb-4">
+                            <div className="p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  Approve {item.cases.length} claims — {formatMoney(item.totalAmount)} total
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-2">All high confidence; packets ready</p>
+                              <button
+                                onClick={() => setBatchExpanded(!batchExpanded)}
+                                className="text-xs text-primary hover:underline flex items-center gap-1"
+                              >
+                                {batchExpanded ? "Collapse" : "Expand to review"}
+                                {batchExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </button>
+                            </div>
+                            {batchExpanded && (
+                              <div className="border-t border-border p-3 space-y-3 animate-fade-in">
+                                {item.cases.map(c => (
+                                  <div key={c.id} className="p-3 rounded-lg border border-border bg-card">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusConfig[c.status].bgColor} ${statusConfig[c.status].color}`}>
+                                          {statusConfig[c.status].label}
+                                        </span>
+                                        <span className="text-xs font-medium text-foreground">{c.id}</span>
+                                      </div>
+                                      <MoneyBadge amount={c.amount} status={c.status} size="sm" />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mb-2">{c.confidence_reason}</p>
+                                    <ReceiptStrip caseData={c} onViewPacket={() => setPacketCase(c)} compact />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* 1-2 cases: show inline */
+                          <div className="space-y-3 mb-4">
+                            {item.cases.map(c => (
+                              <div key={c.id} className="p-3 rounded-xl border border-border bg-surface/40">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusConfig[c.status].bgColor} ${statusConfig[c.status].color}`}>
+                                      {statusConfig[c.status].label}
+                                    </span>
+                                    <span className="text-xs font-medium text-foreground">{c.id}</span>
+                                  </div>
+                                  <MoneyBadge amount={c.amount} status={c.status} size="sm" />
+                                </div>
+                                <p className="text-xs text-muted-foreground mb-2">{c.confidence_reason}</p>
+                                <ReceiptStrip caseData={c} onViewPacket={() => setPacketCase(c)} compact />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="p-2.5 rounded-lg bg-surface border border-border mb-4">
+                          <p className="text-xs text-muted-foreground">
+                            <span className="text-foreground font-medium">Submission:</span> ShipStation claim flow ✅
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Evidence flow */}
+                    {item.type === "evidence" && (
+                      <div className="p-4 rounded-xl border border-amber/30 bg-amber/5 mb-4">
+                        <div className="flex items-start gap-3">
+                          <Camera className="h-5 w-5 text-amber mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-semibold text-foreground mb-1">Photos needed from customer</h3>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Request 3–5 item photos + packaging photos from {item.cases[0].shopify_order.customer_name}.
+                            </p>
+                            <button
+                              onClick={() => handleMarkPhotosReceived(item.cases[0])}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-accent transition-colors"
+                            >
+                              <ImagePlus className="h-3.5 w-3.5" /> Mark Photos Received (Mock)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Invoice flow */}
+                    {item.type === "invoice" && (
+                      <div className="p-4 rounded-xl border border-agent-blue/30 bg-agent-blue/5 mb-4">
+                        <div className="flex items-start gap-3">
+                          <FileText className="h-5 w-5 text-agent-blue mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-semibold text-foreground mb-1">Carrier invoice enriches this case</h3>
+                            <p className="text-xs text-muted-foreground">
+                              Upload or connect invoice feed to increase confidence from Medium → High.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={executeCurrentItem}
+                        className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Icon className="h-4 w-4" /> {item.primaryAction}
+                      </button>
+                      <button
+                        onClick={() => setPacketCase(item.cases[0])}
+                        className="py-2.5 px-3 rounded-xl border border-border text-foreground text-sm font-medium hover:bg-accent transition-colors flex items-center gap-1.5"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Proof
+                      </button>
+                    </div>
+
+                    {/* Skip link */}
+                    {flowPlanItems.length > 1 && (
+                      <button
+                        onClick={advanceFlow}
+                        className="w-full mt-3 text-xs text-muted-foreground hover:text-foreground text-center"
+                      >
+                        Skip this step →
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Flow: Executing */}
+              {flowStep === "executing" && (
+                <div className="py-4">
+                  <h2 className="text-lg font-bold text-foreground mb-4">Submitting…</h2>
+                  <ExecutionChecklist />
+                </div>
+              )}
+
+              {/* Flow: Done */}
+              {flowStep === "done" && (
+                <div className="py-6 text-center">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <Check className="h-6 w-6 text-primary" />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">{guidedCase.confidence_reason}</p>
-                  <ReceiptStrip caseData={guidedCase} onViewPacket={() => setPacketCase(guidedCase)} compact />
-                </div>
-
-                <div className="p-3 rounded-lg bg-surface border border-border mb-4">
-                  <p className="text-xs text-muted-foreground">
-                    <span className="text-foreground font-medium">Submission:</span> ShipStation claim flow ✅
+                  <h2 className="text-lg font-bold text-foreground mb-1">Plan complete</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {flowSummary.submitted > 0 && `${flowSummary.submitted} submitted`}
+                    {flowSummary.submitted > 0 && flowSummary.waiting > 0 && ", "}
+                    {flowSummary.waiting > 0 && `${flowSummary.waiting} waiting on customer photos`}
                   </p>
-                </div>
 
-                <div className="flex items-center gap-3">
+                  {/* Next check-in hook */}
+                  <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 mb-5">
+                    <p className="text-sm text-foreground">
+                      I'll notify you when photos arrive. <span className="font-semibold text-primary">Next check-in: tomorrow at 9am.</span>
+                    </p>
+                  </div>
+
                   <button
-                    onClick={executeGuidedApproval}
-                    className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2"
+                    onClick={closeFlow}
+                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all"
                   >
-                    <Check className="h-5 w-5" /> Confirm & Submit
-                  </button>
-                  <button
-                    onClick={() => { setGuidedCase(null); setApprovalStep("preview"); }}
-                    className="py-3 px-4 rounded-xl border border-border text-foreground font-medium hover:bg-accent transition-colors"
-                  >
-                    Cancel
+                    Done
                   </button>
                 </div>
-              </>
-            )}
-
-            {approvalStep === "executing" && (
-              <div className="py-4">
-                <h2 className="text-lg font-bold text-foreground mb-4">Submitting claim…</h2>
-                <ExecutionChecklist />
-              </div>
-            )}
-
-            {approvalStep === "done" && (
-              <div className="py-4 text-center">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Check className="h-7 w-7 text-primary" />
-                </div>
-                <h2 className="text-lg font-bold text-foreground mb-1">Submitted via ShipStation claim flow ✅</h2>
-                <p className="text-sm text-muted-foreground">Case {guidedCase.id} is now being tracked.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Packet Viewer Modal */}
       {packetCase && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setPacketCase(null)} />
-          <div className="relative w-full max-w-lg bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-lg p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-lg p-5 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-foreground">Evidence Packet — {packetCase.id}</h2>
+              <h2 className="text-base font-bold text-foreground">Evidence — {packetCase.id}</h2>
               <button onClick={() => setPacketCase(null)} className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground">✕</button>
             </div>
             <PacketViewer
               evidence={packetCase.evidence}
               showMissing
               expectedTypes={expectedEvidence[packetCase.lane]}
-              onRequestPhotos={() => navigate(`/case/${packetCase.id}`)}
-              onUploadPdf={() => {}}
-              onRefreshTracking={() => {}}
+              onRequestPhotos={() => { setPacketCase(null); setPhotosModalCase(packetCase); }}
+              onUploadPdf={() => setShowInvoiceModal(true)}
+              onRefreshTracking={() => toast({ title: "Tracking refreshed", description: "Latest events pulled." })}
             />
           </div>
         </div>
@@ -540,54 +642,59 @@ const AgentHome = () => {
 
       {/* Invoice Feed Modal */}
       {showInvoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setShowInvoiceModal(false)} />
-          <div className="relative w-full max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-lg p-6 animate-slide-up">
-            <h2 className="text-lg font-bold text-foreground mb-1">Connect Invoice Feed</h2>
+          <div className="relative w-full max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-lg p-5 animate-slide-up">
+            <h2 className="text-base font-bold text-foreground mb-1">Connect Invoice Feed</h2>
             <p className="text-sm text-muted-foreground mb-4">Auto-forward carrier invoices to enrich overcharge cases.</p>
 
-            <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 mb-4">
-              <p className="text-sm font-medium text-foreground mb-2">Forward carrier invoice emails to:</p>
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-surface border border-border">
+            <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 mb-4">
+              <p className="text-xs font-medium text-foreground mb-1.5">Forward carrier invoice emails to:</p>
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-surface border border-border">
                 <Mail className="h-4 w-4 text-primary" />
                 <code className="text-sm font-mono text-primary">invoices@recoverly.ai</code>
               </div>
             </div>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <span className="text-primary font-bold mt-0.5">1</span>
-                <span>Add a rule in your billing/AP inbox to auto-forward carrier invoices</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <span className="text-primary font-bold mt-0.5">2</span>
-                <span>Include attachments (PDF/CSV if present)</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <span className="text-primary font-bold mt-0.5">3</span>
-                <span>We'll ingest and match to shipments automatically</span>
-              </div>
+            <div className="space-y-2 mb-5 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">1</span><span>Add a rule to auto-forward carrier invoices</span></div>
+              <div className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">2</span><span>Include attachments (PDF/CSV)</span></div>
+              <div className="flex items-start gap-2"><span className="text-primary font-bold mt-0.5">3</span><span>We ingest and match automatically</span></div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => { setInvoiceFeedConnected(true); setShowInvoiceModal(false); }}
-                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2"
+                onClick={() => { setInvoiceFeedConnected(true); setShowInvoiceModal(false); toast({ title: "Invoice feed connected" }); }}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all"
               >
-                <Check className="h-5 w-5" /> Mark as Connected
+                Mark as Connected
               </button>
-              <button onClick={() => setShowInvoiceModal(false)} className="py-3 px-4 rounded-xl border border-border text-foreground font-medium hover:bg-accent transition-colors">
+              <button onClick={() => setShowInvoiceModal(false)} className="py-2.5 px-4 rounded-xl border border-border text-foreground text-sm hover:bg-accent transition-colors">
                 Cancel
               </button>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border">
-              <button className="w-full py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-accent transition-colors flex items-center justify-center gap-2">
-                <Upload className="h-4 w-4" /> Upload invoice manually instead
-              </button>
-            </div>
+            <button className="w-full mt-3 py-2 rounded-lg border border-border text-muted-foreground text-xs hover:bg-accent transition-colors flex items-center justify-center gap-1.5">
+              <Upload className="h-3.5 w-3.5" /> Upload invoice manually
+            </button>
           </div>
         </div>
+      )}
+
+      {/* Request Photos Modal */}
+      {photosModalCase && (
+        <RequestPhotosModal
+          open={true}
+          onClose={() => setPhotosModalCase(null)}
+          orderNumber={photosModalCase.shopify_order.order_number}
+          trackingNumber={photosModalCase.tracking_number}
+          customerName={photosModalCase.shopify_order.customer_name}
+          caseId={photosModalCase.id}
+          onSent={() => {
+            toast({ title: "Request sent", description: `Photo request sent to ${photosModalCase.shopify_order.customer_name}.` });
+            setPhotosModalCase(null);
+          }}
+        />
       )}
 
       {/* Undo Toast */}
@@ -606,19 +713,18 @@ const AgentHome = () => {
 const ExecutionChecklist = () => {
   const [step, setStep] = useState(0);
 
-  useState(() => {
-    const steps = [0, 1, 2, 3];
+  useEffect(() => {
     let idx = 0;
     const interval = setInterval(() => {
       idx++;
-      if (idx <= steps.length) {
+      if (idx <= 4) {
         setStep(idx);
       } else {
         clearInterval(interval);
       }
     }, 600);
     return () => clearInterval(interval);
-  });
+  }, []);
 
   const items = [
     "Verifying tracking…",

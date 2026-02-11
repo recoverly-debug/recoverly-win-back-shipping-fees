@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plug, Store, Truck, Package, ShoppingCart, CheckCircle2, Loader2 } from "lucide-react";
-import AppNav from "@/components/navigation/AppNav";
+import BottomNav from "@/components/navigation/BottomNav";
+import Logo from "@/components/Logo";
 
 const connectors = [
   {
@@ -57,8 +58,10 @@ const connectors = [
 
 const ConnectorsSettings = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <AppNav />
+    <div className="min-h-screen bg-background pb-20">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-lg border-b border-border">
+        <div className="container px-4 h-14 flex items-center"><Logo /></div>
+      </header>
       <main className="container px-4 py-6 max-w-2xl mx-auto">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -103,6 +106,7 @@ const ConnectorsSettings = () => {
           ))}
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 };
