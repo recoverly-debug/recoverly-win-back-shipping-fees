@@ -77,7 +77,7 @@ const CaseDetail = () => {
       timeline: [
         ...caseData.timeline,
         { ts: new Date().toISOString(), event: "Evidence received", note: "Customer provided 5 damage photos.", actor: "USER" as const },
-        { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for filing.", actor: "AGENT" as const },
+        { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for submission.", actor: "AGENT" as const },
       ],
     };
     setCaseData(updatedCase);
@@ -134,19 +134,31 @@ const CaseDetail = () => {
           <MoneyBadge amount={caseData.amount} status={caseData.status} size="lg" />
         </div>
 
-        {/* Confidence + Submission Route */}
-        <div className="p-3 rounded-lg bg-surface border border-border mb-4">
+        {/* Deadline + Confidence + Submission Route */}
+        <div className="p-3 rounded-lg bg-surface border border-border mb-4 space-y-1">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-foreground font-medium">Deadline:</span>{" "}
+            {(() => {
+              const dl = new Date(caseData.deadline);
+              const now = new Date();
+              const diffMs = dl.getTime() - now.getTime();
+              const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+              const dateStr = dl.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              if (diffMs < 0) return <span className="text-muted-foreground">missed ({dateStr})</span>;
+              return <span>{dateStr} ({diffDays} day{diffDays !== 1 ? "s" : ""})</span>;
+            })()}
+          </p>
           <p className="text-xs text-muted-foreground">{caseData.confidence_reason}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground">
             <span className="text-foreground font-medium">Submission:</span> ShipStation claim flow ✅
           </p>
         </div>
 
         {/* Damage CTA */}
         {isDamageNeedsEvidence && (
-          <div className="p-4 rounded-xl border border-amber/30 bg-amber/5 mb-4 space-y-3">
+          <div className="p-4 rounded-xl border border-warning/20 bg-warning/5 mb-4 space-y-3">
             <div className="flex items-start gap-3">
-              <Camera className="h-5 w-5 text-amber mt-0.5" />
+              <Camera className="h-5 w-5 text-warning mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-foreground mb-1">Photos needed from customer</h3>
                 <p className="text-xs text-muted-foreground mb-3">
@@ -155,7 +167,7 @@ const CaseDetail = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={handleRequestPhotos}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber text-warning-foreground text-sm font-medium hover:bg-amber/90 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-warning text-warning-foreground text-sm font-medium hover:bg-warning/90 transition-colors"
                   >
                     <Camera className="h-4 w-4" /> Request Evidence from Customer
                   </button>
@@ -225,7 +237,7 @@ const CaseDetail = () => {
                 <div><span className="text-muted-foreground">Dims:</span> <span className="text-foreground">{`${caseData.shipstation_shipment.dimensions.l}×${caseData.shipstation_shipment.dimensions.w}×${caseData.shipstation_shipment.dimensions.h}`}</span></div>
                 <div><span className="text-muted-foreground">Cost:</span> <span className="text-foreground font-medium">{formatMoney(caseData.shipstation_shipment.shipping_cost)}</span></div>
                 {caseData.shipstation_shipment.billed_dimensions && (
-                  <div><span className="text-muted-foreground">Billed Dims:</span> <span className="text-amber font-medium">{`${caseData.shipstation_shipment.billed_dimensions.l}×${caseData.shipstation_shipment.billed_dimensions.w}×${caseData.shipstation_shipment.billed_dimensions.h}`}</span></div>
+                  <div><span className="text-muted-foreground">Billed Dims:</span> <span className="text-warning font-medium">{`${caseData.shipstation_shipment.billed_dimensions.l}×${caseData.shipstation_shipment.billed_dimensions.w}×${caseData.shipstation_shipment.billed_dimensions.h}`}</span></div>
                 )}
               </div>
             </div>

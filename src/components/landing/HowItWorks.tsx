@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const steps = [
   {
     icon: Store,
-    title: "Connect Your Store",
-    description: "Link your Shopify, Amazon, or eBay store in under 2 minutes. We securely sync your shipping data.",
+    title: "Connect Shopify + ShipStation",
+    description: "Link your Shopify store and ShipStation account in under 2 minutes. We securely sync your shipping data.",
   },
   {
     icon: Search,

@@ -14,7 +14,7 @@ const LandingNav = () => {
               <Link to="/agent">Login</Link>
             </Button>
             <Button asChild className="glow-hover bg-primary text-primary-foreground">
-              <Link to="/agent">Get Started</Link>
+              <Link to="/onboarding">Get Started</Link>
             </Button>
           </div>
         </div>
