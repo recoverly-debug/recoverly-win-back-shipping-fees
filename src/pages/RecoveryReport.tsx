@@ -46,7 +46,12 @@ const RecoveryReport = () => {
     amount: c.amount,
   }));
 
-  const pieColors = ["hsl(160, 84%, 39%)", "hsl(38, 92%, 50%)", "hsl(217, 91%, 60%)", "hsl(0, 84%, 60%)"];
+  // Appeal stats
+  const appealCases = allCases.filter((c) => c.timeline.some(e => e.branch === "APPEAL"));
+  const appealsWon = appealCases.filter((c) => ["APPROVED", "PAID"].includes(c.status)).length;
+  const appealsTotal = appealCases.length;
+
+  const pieColors = ["hsl(168, 40%, 40%)", "hsl(35, 45%, 48%)", "hsl(240, 45%, 60%)", "hsl(355, 40%, 50%)"];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -124,6 +129,17 @@ const RecoveryReport = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* Appeals */}
+        <div className="p-4 rounded-xl border border-border bg-card mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Appeals</h3>
+          <p className="text-sm text-muted-foreground mb-2">
+            Appeals won: <span className="text-foreground font-semibold">{appealsWon} of {appealsTotal}</span> <span className="text-muted-foreground/60">(demo)</span>
+          </p>
+          {appealsTotal > 0 && (
+            <p className="text-xs text-muted-foreground">Appeal playbook available for denied cases with strong evidence.</p>
+          )}
         </div>
 
         {/* Denial Reasons */}

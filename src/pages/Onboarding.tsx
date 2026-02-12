@@ -71,8 +71,8 @@ const Onboarding = () => {
               <CheckCircle2 className="h-5 w-5 text-primary" />
               <span className="text-sm text-primary font-medium">ShipStation connected</span>
             </div>
-            <div className="h-14 w-14 rounded-xl bg-agent-blue/10 flex items-center justify-center mx-auto mb-4">
-              <Store className="h-7 w-7 text-agent-blue" />
+            <div className="h-14 w-14 rounded-xl bg-info/10 flex items-center justify-center mx-auto mb-4">
+              <Store className="h-7 w-7 text-info" />
             </div>
             <h2 className="text-lg font-bold text-foreground text-center mb-2">Connect Shopify</h2>
             <p className="text-sm text-muted-foreground text-center mb-6">
@@ -81,7 +81,7 @@ const Onboarding = () => {
             <button
               onClick={() => handleConnect("monitoring")}
               disabled={connecting}
-              className="w-full py-3 rounded-xl bg-agent-blue text-info-foreground font-medium hover:bg-agent-blue/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-info text-info-foreground font-medium hover:bg-info/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {connecting ? (
                 <><Loader2 className="h-5 w-5 animate-spin" /> Connecting...</>

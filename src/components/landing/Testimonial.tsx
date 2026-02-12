@@ -1,19 +1,16 @@
-import { Shield } from "lucide-react";
-
 const Testimonial = () => {
   return (
     <section className="py-20 bg-background">
       <div className="container px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <Shield className="h-10 w-10 text-primary mx-auto mb-6 opacity-60" />
-          
-          <blockquote className="text-2xl sm:text-3xl font-medium text-foreground leading-relaxed mb-6 animate-fade-in">
-            "Most sellers don't know they're being overcharged. We check every shipment so you don't have to."
-          </blockquote>
-          
-          <p className="text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            Proof-first recovery · Audit-grade evidence packets · Always-on monitoring
-          </p>
+        <div className="max-w-3xl mx-auto">
+          <div className="p-8 rounded-2xl border border-border bg-card/60 text-center animate-fade-in">
+            <blockquote className="text-xl sm:text-2xl font-medium text-foreground leading-relaxed mb-4">
+              "~80% of carrier invoices contain billing discrepancies."
+            </blockquote>
+            <p className="text-sm text-muted-foreground">
+              Intelligent Audit industry reporting
+            </p>
+          </div>
         </div>
       </div>
     </section>

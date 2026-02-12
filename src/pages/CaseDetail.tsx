@@ -119,10 +119,15 @@ const CaseDetail = () => {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${status.bgColor} ${status.color}`}>
                 {status.label}
               </span>
+              {(caseData.status === "DENIED" || caseData.status === "APPEALED" || caseData.status === "APPEAL_IN_PROGRESS") && (
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-info/10 text-info">
+                  Appeal
+                </span>
+              )}
               <span className={`text-xs font-medium ${lane.color}`}>{lane.label}</span>
               <span className={`text-xs font-medium ${carrier.color}`}>{carrier.label}</span>
             </div>
@@ -263,21 +268,21 @@ const CaseDetail = () => {
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons — thumb-zone optimized */}
         <div className="flex items-center gap-3 mt-8 pb-8">
           {["FOUND", "READY"].includes(caseData.status) && (
-            <button onClick={handleApprove} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2">
+            <button onClick={handleApprove} className="flex-1 py-3.5 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2 min-h-[44px]">
               <Check className="h-5 w-5" /> Approve & Submit
             </button>
           )}
           {!["PAID", "APPROVED"].includes(caseData.status) && (
-            <button className="flex-1 py-3 rounded-xl border border-border text-foreground font-medium hover:bg-accent transition-colors flex items-center justify-center gap-2">
+            <button className="flex-1 py-3.5 rounded-xl border border-border text-foreground font-medium hover:bg-accent transition-colors flex items-center justify-center gap-2 min-h-[44px]">
               <Pause className="h-5 w-5" /> Hold
             </button>
           )}
           <button
             onClick={() => setChatOpen(true)}
-            className="py-3 px-4 rounded-xl border border-agent-blue/30 text-agent-blue font-medium hover:bg-agent-blue/10 transition-colors flex items-center gap-2"
+            className="py-3.5 px-4 rounded-xl border border-info/30 text-info font-medium hover:bg-info/10 transition-colors flex items-center gap-2 min-h-[44px]"
           >
             <MessageSquare className="h-5 w-5" /> Explain This
           </button>

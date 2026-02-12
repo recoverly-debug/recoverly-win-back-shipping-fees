@@ -11,6 +11,7 @@ export type CaseStatus =
   | "APPROVED"
   | "DENIED"
   | "APPEALED"
+  | "APPEAL_IN_PROGRESS"
   | "PAID";
 
 export type ConfidenceLabel = "HIGH" | "MEDIUM" | "LOW";
@@ -89,13 +90,14 @@ export interface Case {
 // Status configuration
 export const statusConfig: Record<CaseStatus, { label: string; color: string; bgColor: string; glowClass?: string }> = {
   FOUND: { label: "Found", color: "text-info", bgColor: "bg-info/10" },
-  NEEDS_EVIDENCE: { label: "Needs Evidence", color: "text-warning", bgColor: "bg-warning/10", glowClass: "shadow-glow-amber" },
+  NEEDS_EVIDENCE: { label: "Needs Evidence", color: "text-warning", bgColor: "bg-warning/10" },
   READY: { label: "Ready", color: "text-primary", bgColor: "bg-primary/10" },
-  SUBMITTED: { label: "Submitted", color: "text-info", bgColor: "bg-info/10", glowClass: "shadow-glow-blue" },
-  UNDER_REVIEW: { label: "Under Review", color: "text-warning", bgColor: "bg-warning/10" },
+  SUBMITTED: { label: "Submitted", color: "text-info", bgColor: "bg-info/10" },
+  UNDER_REVIEW: { label: "Under Review", color: "text-info", bgColor: "bg-info/10" },
   APPROVED: { label: "Approved", color: "text-primary", bgColor: "bg-primary/10", glowClass: "shadow-glow-sm" },
-  DENIED: { label: "Denied", color: "text-destructive", bgColor: "bg-destructive/10", glowClass: "shadow-glow-red" },
-  APPEALED: { label: "Appealed", color: "text-warning", bgColor: "bg-warning/10" },
+  DENIED: { label: "Denied", color: "text-destructive", bgColor: "bg-destructive/10" },
+  APPEALED: { label: "Appealed", color: "text-info", bgColor: "bg-info/10" },
+  APPEAL_IN_PROGRESS: { label: "Appeal in Progress", color: "text-info", bgColor: "bg-info/10" },
   PAID: { label: "Paid", color: "text-primary", bgColor: "bg-primary/10", glowClass: "shadow-glow-md" },
 };
 
@@ -358,7 +360,7 @@ const additionalCases: Case[] = [
   {
     id: "RC-1009", lane: "OVERCHARGE", carrier: "FEDEX", service: "FedEx Ground",
     amount: 112.30, deadline: "2026-02-11", status: "DENIED",
-    confidence_label: "MEDIUM", confidence_reason: "Medium — carrier disputes dims measurement, appeal in progress.",
+    confidence_label: "MEDIUM", confidence_reason: "Medium — carrier disputes dims measurement, appeal available.",
     submission_route: "SHIPSTATION_CLAIM_FLOW", tracking_number: "794644790471",
     shopify_order: { id: "shop-5160", order_number: "#5160", customer_name: "James Wilson", total: 89.00, items: [{ name: "Phone Case Premium", qty: 4, price: 19.99 }], created_at: "2026-02-02T10:00:00Z" },
     shipstation_shipment: { shipment_id: "SH-3070", order_number: "#5160", carrier: "FedEx", service: "FedEx Ground", tracking_number: "794644790471", ship_date: "2026-02-03", weight_oz: 16, dimensions: { l: 10, w: 8, h: 4 }, shipping_cost: 14.50 },
@@ -366,7 +368,7 @@ const additionalCases: Case[] = [
       { ts: "2026-02-05T09:00:00Z", event: "Issue detected", note: "DIM overcharge of $112.30.", actor: "AGENT" },
       { ts: "2026-02-05T15:00:00Z", event: "Claim submitted", note: "Submitted via ShipStation claim flow.", actor: "AGENT" },
       { ts: "2026-02-08T10:00:00Z", event: "Claim denied", note: "FedEx: dims confirmed via re-weigh audit.", actor: "CARRIER", branch: "DENIAL" },
-      { ts: "2026-02-08T14:00:00Z", event: "Appeal submitted", note: "Appealing with photo evidence of package dims.", actor: "AGENT", branch: "APPEAL" },
+      { ts: "2026-02-08T14:00:00Z", event: "Appeal submitted", note: "Agent rebuttal: (1) Invoice line shows billed 14×10×6 vs label 10×8×4 — 40% dims discrepancy. (2) Photo evidence of actual package with measuring tape confirms label dims.", actor: "AGENT", branch: "APPEAL" },
     ],
     evidence: [
       { type: "SHIPSTATION_SHIPMENT", source: "SHIPSTATION", summary: "Shipment SH-3070 — FedEx Ground." },

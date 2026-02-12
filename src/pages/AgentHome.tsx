@@ -467,14 +467,7 @@ const AgentHome = () => {
 
         {/* Zone B — Primary CTA + Today's Plan */}
         <div className="mb-5">
-          {planItems.length > 0 && (
-            <button
-              onClick={startPlanFlow}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold glow-hover transition-all flex items-center justify-center gap-2 mb-4 text-sm"
-            >
-              <Sparkles className="h-4 w-4" /> Run today's plan
-            </button>
-          )}
+          {/* Plan items first, CTA at bottom for thumb-zone */}
 
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-foreground">Today's plan</h2>
@@ -522,6 +515,16 @@ const AgentHome = () => {
               );
             })}
           </div>
+
+          {/* Primary CTA — in thumb-zone (lower half) */}
+          {planItems.length > 0 && (
+            <button
+              onClick={startPlanFlow}
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold glow-hover transition-all flex items-center justify-center gap-2 mt-4 text-sm min-h-[44px]"
+            >
+              <Sparkles className="h-4 w-4" /> Run today's plan
+            </button>
+          )}
         </div>
 
         {/* Compact metrics row */}
