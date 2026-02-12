@@ -89,25 +89,25 @@ export interface Case {
 // Status configuration
 export const statusConfig: Record<CaseStatus, { label: string; color: string; bgColor: string; glowClass?: string }> = {
   FOUND: { label: "Found", color: "text-info", bgColor: "bg-info/10" },
-  NEEDS_EVIDENCE: { label: "Needs Evidence", color: "text-amber", bgColor: "bg-amber/10", glowClass: "shadow-glow-amber" },
+  NEEDS_EVIDENCE: { label: "Needs Evidence", color: "text-warning", bgColor: "bg-warning/10", glowClass: "shadow-glow-amber" },
   READY: { label: "Ready", color: "text-primary", bgColor: "bg-primary/10" },
-  SUBMITTED: { label: "Submitted", color: "text-agent-blue", bgColor: "bg-agent-blue/10", glowClass: "shadow-glow-blue" },
-  UNDER_REVIEW: { label: "Under Review", color: "text-amber", bgColor: "bg-amber/10" },
+  SUBMITTED: { label: "Submitted", color: "text-info", bgColor: "bg-info/10", glowClass: "shadow-glow-blue" },
+  UNDER_REVIEW: { label: "Under Review", color: "text-warning", bgColor: "bg-warning/10" },
   APPROVED: { label: "Approved", color: "text-primary", bgColor: "bg-primary/10", glowClass: "shadow-glow-sm" },
   DENIED: { label: "Denied", color: "text-destructive", bgColor: "bg-destructive/10", glowClass: "shadow-glow-red" },
-  APPEALED: { label: "Appealed", color: "text-amber", bgColor: "bg-amber/10" },
+  APPEALED: { label: "Appealed", color: "text-warning", bgColor: "bg-warning/10" },
   PAID: { label: "Paid", color: "text-primary", bgColor: "bg-primary/10", glowClass: "shadow-glow-md" },
 };
 
 export const laneConfig: Record<CaseLane, { label: string; icon: string; color: string }> = {
-  OVERCHARGE: { label: "Overcharge", icon: "receipt", color: "text-amber" },
+  OVERCHARGE: { label: "Overcharge", icon: "receipt", color: "text-warning" },
   LATE_DELIVERY: { label: "Late Delivery", icon: "clock", color: "text-info" },
   LOST: { label: "Lost in Transit", icon: "package-x", color: "text-destructive" },
-  DAMAGE: { label: "Damage", icon: "alert-triangle", color: "text-coral" },
+  DAMAGE: { label: "Damage", icon: "alert-triangle", color: "text-destructive" },
 };
 
 export const carrierConfig: Record<CaseCarrier, { label: string; color: string }> = {
-  UPS: { label: "UPS", color: "text-amber" },
+  UPS: { label: "UPS", color: "text-warning" },
   FEDEX: { label: "FedEx", color: "text-info" },
   USPS: { label: "USPS", color: "text-primary" },
   OTHER: { label: "Other", color: "text-muted-foreground" },

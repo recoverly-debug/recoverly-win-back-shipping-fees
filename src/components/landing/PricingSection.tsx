@@ -31,9 +31,9 @@ const PricingSection = () => {
             <ul className="text-left max-w-xs mx-auto mb-8 space-y-3">
               {[
                 "Free store connection",
-                "Automatic claim filing",
-                "All major carriers supported",
-                "Real-time tracking dashboard",
+                "Automatic claim submission",
+                "UPS, FedEx, USPS supported",
+                "Shopify + ShipStation integration",
                 "Cancel anytime",
               ].map((feature) => (
                 <li key={feature} className="flex items-center gap-3 text-muted-foreground">
@@ -48,7 +48,7 @@ const PricingSection = () => {
               size="lg" 
               className="w-full text-lg py-6 glow-hover bg-primary text-primary-foreground font-semibold"
             >
-              <Link to="/dashboard">
+              <Link to="/onboarding">
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>

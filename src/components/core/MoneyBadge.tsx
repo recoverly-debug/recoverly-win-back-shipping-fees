@@ -27,7 +27,7 @@ const MoneyBadge = ({ amount, status, size = "md", className }: MoneyBadgeProps)
         isPositive
           ? "text-primary bg-primary/10 money-glow"
           : status === "NEEDS_EVIDENCE" || status === "DENIED"
-          ? "text-amber bg-amber/10"
+          ? "text-warning bg-warning/10"
           : "text-foreground bg-surface-elevated",
         isPaid && "animate-count-up",
         className

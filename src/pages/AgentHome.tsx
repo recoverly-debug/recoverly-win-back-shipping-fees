@@ -20,12 +20,12 @@ const expectedEvidence: Record<string, EvidenceType[]> = {
   DAMAGE: ["SHIPSTATION_SHIPMENT", "TRACKING_EVENTS", "PHOTOS", "SHIPSTATION_LABEL"],
 };
 
-type TriggerItem = { icon: typeof Clock; text: string; time: string };
+type TriggerItem = { icon: typeof Clock; text: string; time: string; requiresInvoiceFeed?: boolean };
 
 const recentTriggers: TriggerItem[] = [
   { icon: Radio, text: "Tracking update: Delivered scan received (FedEx)", time: "12m ago" },
   { icon: FileText, text: "Billing update: Carrier adjustment posted ($42.50)", time: "1h ago" },
-  { icon: Mail, text: "Invoice received via email forwarding (UPS)", time: "3h ago" },
+  { icon: Mail, text: "Invoice received via email forwarding (UPS)", time: "3h ago", requiresInvoiceFeed: true },
 ];
 
 function formatDeadlineShort(deadline: string): string {
@@ -63,9 +63,7 @@ type PlanItem = {
 function buildPlanItems(cases: Case[]): PlanItem[] {
   const items: PlanItem[] = [];
 
-  // A) Approve & submit — READY cases with HIGH confidence (batchable)
   const readyHigh = cases.filter(c => c.status === "READY" && c.confidence_label === "HIGH");
-  // Also include FOUND with high confidence
   const foundHigh = cases.filter(c => c.status === "FOUND" && c.confidence_label === "HIGH");
   const approvable = [...readyHigh, ...foundHigh];
   if (approvable.length > 0) {
@@ -84,7 +82,6 @@ function buildPlanItems(cases: Case[]): PlanItem[] {
     });
   }
 
-  // B) Request evidence — NEEDS_EVIDENCE cases
   const needsEvidence = cases.filter(c => c.status === "NEEDS_EVIDENCE");
   needsEvidence.forEach(c => {
     items.push({
@@ -92,13 +89,12 @@ function buildPlanItems(cases: Case[]): PlanItem[] {
       cases: [c],
       title: "Request evidence from customer",
       subtitle: `${c.shopify_order.order_number} — ${c.shopify_order.customer_name}`,
-      primaryAction: "Request Photos",
+      primaryAction: "Send Request",
       urgencyLabel: formatDeadlineShort(c.deadline),
       totalAmount: c.amount,
     });
   });
 
-  // C) Invoice missing on overcharge
   const overchargeNoInvoice = cases.filter(c =>
     c.lane === "OVERCHARGE" &&
     c.status === "FOUND" &&
@@ -120,8 +116,16 @@ function buildPlanItems(cases: Case[]): PlanItem[] {
   return items.slice(0, 3);
 }
 
-// Guided flow types
-type FlowStep = "idle" | "review" | "executing" | "done";
+type FlowStep = "idle" | "review" | "executing" | "step_done" | "all_done";
+
+// Track what happened in each step
+type StepResult = {
+  type: "approve" | "evidence" | "invoice";
+  submittedCount: number;
+  evidenceRequested: boolean;
+  photosReceived: boolean;
+  invoiceUploaded: boolean;
+};
 
 const AgentHome = () => {
   const navigate = useNavigate();
@@ -139,6 +143,7 @@ const AgentHome = () => {
   const [flowPlanItems, setFlowPlanItems] = useState<PlanItem[]>([]);
   const [flowCurrentIdx, setFlowCurrentIdx] = useState(0);
   const [batchExpanded, setBatchExpanded] = useState(false);
+  const [stepResults, setStepResults] = useState<StepResult[]>([]);
 
   // Photo request state
   const [photosModalCase, setPhotosModalCase] = useState<Case | null>(null);
@@ -152,7 +157,13 @@ const AgentHome = () => {
   const recoveredTotal = useMemo(() => cases.filter(c => ["APPROVED", "PAID"].includes(c.status)).reduce((sum, c) => sum + c.amount, 0), [cases]);
 
   const planItems = useMemo(() => buildPlanItems(cases), [cases]);
-  const updateCount = 3; // mock
+  const updateCount = 3;
+
+  // Filter triggers based on invoice feed connection state
+  const visibleTriggers = useMemo(() =>
+    recentTriggers.filter(t => !t.requiresInvoiceFeed || invoiceFeedConnected),
+    [invoiceFeedConnected]
+  );
 
   const handleApprove = useCallback((ids: string[]) => {
     const original = [...cases];
@@ -190,6 +201,7 @@ const AgentHome = () => {
     setFlowCurrentIdx(0);
     setFlowStep("review");
     setBatchExpanded(false);
+    setStepResults([]);
   };
 
   const executeCurrentItem = () => {
@@ -200,30 +212,89 @@ const AgentHome = () => {
       setFlowStep("executing");
       setTimeout(() => {
         handleApprove(item.cases.map(c => c.id));
-        setFlowStep("done");
+        setStepResults(prev => [...prev, {
+          type: "approve",
+          submittedCount: item.cases.length,
+          evidenceRequested: false,
+          photosReceived: false,
+          invoiceUploaded: false,
+        }]);
+        // If more steps, go to step_done; otherwise all_done
+        if (flowCurrentIdx < flowPlanItems.length - 1) {
+          setFlowStep("step_done");
+        } else {
+          setFlowStep("all_done");
+        }
       }, 2500);
     } else if (item.type === "evidence") {
+      // Open photo request modal
       setPhotosModalCase(item.cases[0]);
     } else if (item.type === "invoice") {
       setShowInvoiceModal(true);
     }
   };
 
-  const advanceFlow = () => {
+  const handleEvidenceRequestSent = (caseData: Case) => {
+    setStepResults(prev => [...prev, {
+      type: "evidence",
+      submittedCount: 0,
+      evidenceRequested: true,
+      photosReceived: false,
+      invoiceUploaded: false,
+    }]);
+    setCases(prev => prev.map(c => {
+      if (c.id !== caseData.id) return c;
+      return {
+        ...c,
+        timeline: [
+          ...c.timeline,
+          { ts: new Date().toISOString(), event: "Customer evidence requested", note: "Photo request sent to customer.", actor: "AGENT" as const },
+        ],
+      };
+    }));
+    toast({ title: "Evidence request sent", description: `Photo request sent to ${caseData.shopify_order.customer_name}.` });
+    setPhotosModalCase(null);
+    // Advance
     if (flowCurrentIdx < flowPlanItems.length - 1) {
-      setFlowCurrentIdx(prev => prev + 1);
-      setFlowStep("review");
-      setBatchExpanded(false);
+      setFlowStep("step_done");
     } else {
-      // done — show summary
-      setFlowStep("done");
+      setFlowStep("all_done");
     }
   };
 
-  const closeFlow = () => {
-    setFlowStep("idle");
-    setFlowPlanItems([]);
-    setFlowCurrentIdx(0);
+  const handleMarkPhotosReceivedInFlow = (caseData: Case) => {
+    setCases(prev => prev.map(c => {
+      if (c.id !== caseData.id) return c;
+      return {
+        ...c,
+        status: "READY" as const,
+        confidence_label: "MEDIUM" as const,
+        confidence_reason: "Medium — 4 of 4 core evidence items present. Customer photos received.",
+        evidence: [
+          ...c.evidence,
+          { type: "PHOTOS" as const, source: "UPLOAD" as const, file_ref: "customer-photos.zip", summary: "5 photos: damaged item (3), packaging condition (2)." },
+        ],
+        timeline: [
+          ...c.timeline,
+          { ts: new Date().toISOString(), event: "Evidence received", note: "Customer provided 5 damage photos.", actor: "USER" as const },
+          { ts: new Date().toISOString(), event: "Case ready", note: "All evidence now present. Ready for submission.", actor: "AGENT" as const },
+        ],
+      };
+    }));
+    toast({ title: "Photos received", description: "Case updated to Ready." });
+    setStepResults(prev => [...prev, {
+      type: "evidence",
+      submittedCount: 0,
+      evidenceRequested: false,
+      photosReceived: true,
+      invoiceUploaded: false,
+    }]);
+    setPhotosModalCase(null);
+    if (flowCurrentIdx < flowPlanItems.length - 1) {
+      setFlowStep("step_done");
+    } else {
+      setFlowStep("all_done");
+    }
   };
 
   const handleMarkPhotosReceived = (caseData: Case) => {
@@ -246,21 +317,47 @@ const AgentHome = () => {
       };
     }));
     toast({ title: "Photos received", description: "Case updated to Ready." });
-    // Advance flow if in guided mode
-    if (flowStep === "review") {
-      setTimeout(advanceFlow, 500);
+  };
+
+  const advanceToNextStep = () => {
+    if (flowCurrentIdx < flowPlanItems.length - 1) {
+      setFlowCurrentIdx(prev => prev + 1);
+      setFlowStep("review");
+      setBatchExpanded(false);
+    } else {
+      setFlowStep("all_done");
     }
   };
 
-  const planTypeIcons = { approve: Check, evidence: Camera, invoice: FileText };
-  const planTypeColors = { approve: "text-primary bg-primary/10", evidence: "text-amber bg-amber/10", invoice: "text-agent-blue bg-agent-blue/10" };
+  const closeFlow = () => {
+    setFlowStep("idle");
+    setFlowPlanItems([]);
+    setFlowCurrentIdx(0);
+    setStepResults([]);
+  };
 
-  // Flow summary
+  const planTypeIcons = { approve: Check, evidence: Camera, invoice: FileText };
+  const planTypeColors = { approve: "text-primary bg-primary/10", evidence: "text-warning bg-warning/10", invoice: "text-info bg-info/10" };
+
+  // Flow summary computed from stepResults
   const flowSummary = useMemo(() => {
-    const submitted = cases.filter(c => c.status === "SUBMITTED").length;
-    const waiting = cases.filter(c => c.status === "NEEDS_EVIDENCE").length;
-    return { submitted, waiting };
-  }, [cases]);
+    const submitted = stepResults.reduce((s, r) => s + r.submittedCount, 0);
+    const evidenceRequested = stepResults.some(r => r.evidenceRequested);
+    const photosReceived = stepResults.some(r => r.photosReceived);
+    const invoiceUploaded = stepResults.some(r => r.invoiceUploaded);
+
+    const parts: string[] = [];
+    if (submitted > 0) parts.push(`${submitted} submitted`);
+    if (evidenceRequested) parts.push("1 evidence request sent");
+    if (photosReceived) parts.push("1 case moved to Ready");
+    if (invoiceUploaded) parts.push("1 invoice uploaded");
+    // If there are remaining NEEDS_EVIDENCE cases not addressed
+    const remainingEvidence = cases.filter(c => c.status === "NEEDS_EVIDENCE").length;
+    if (remainingEvidence > 0 && !evidenceRequested && !photosReceived) {
+      parts.push(`${remainingEvidence} waiting on customer photos`);
+    }
+    return parts.join(", ") || "No actions taken";
+  }, [stepResults, cases]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -291,15 +388,15 @@ const AgentHome = () => {
             onClick={() => setTriggersExpanded(!triggersExpanded)}
             className="flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
           >
-            {updateCount} updates since your last review
+            {visibleTriggers.length} updates since your last review
             {triggersExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
 
           {triggersExpanded && (
             <div className="mt-2 space-y-1 animate-fade-in">
-              {recentTriggers.map((trigger, idx) => (
+              {visibleTriggers.map((trigger, idx) => (
                 <div key={idx} className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
-                  <trigger.icon className="h-3 w-3 text-agent-blue shrink-0" />
+                  <trigger.icon className="h-3 w-3 text-info shrink-0" />
                   <span className="flex-1">{trigger.text}</span>
                   <span className="text-muted-foreground/50">{trigger.time}</span>
                 </div>
@@ -353,11 +450,11 @@ const AgentHome = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className={`text-[10px] font-medium ${
-                          urgency === "urgent" ? "text-destructive" : urgency === "moderate" ? "text-amber" : "text-muted-foreground"
+                          urgency === "urgent" ? "text-destructive" : urgency === "moderate" ? "text-warning" : "text-muted-foreground"
                         }`}>{item.urgencyLabel}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                           item.cases[0].confidence_label === "HIGH" ? "bg-primary/10 text-primary" :
-                          item.cases[0].confidence_label === "MEDIUM" ? "bg-amber/10 text-amber" : "bg-destructive/10 text-destructive"
+                          item.cases[0].confidence_label === "MEDIUM" ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
                         }`}>{item.cases[0].confidence_label}</span>
                         <button
                           onClick={() => setPacketCase(item.cases[0])}
@@ -440,14 +537,35 @@ const AgentHome = () => {
                       <span className="text-xs text-muted-foreground">Step {flowCurrentIdx + 1} of {flowPlanItems.length}</span>
                       <button onClick={closeFlow} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                     </div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">{item.title}</h2>
-                    <p className="text-sm text-muted-foreground mb-4">{item.subtitle}</p>
+
+                    {/* Step title varies by type */}
+                    {item.type === "approve" && (
+                      <>
+                        <h2 className="text-lg font-bold text-foreground mb-1">{item.title}</h2>
+                        <p className="text-sm text-muted-foreground mb-4">{item.subtitle}</p>
+                      </>
+                    )}
+
+                    {item.type === "evidence" && (
+                      <>
+                        <h2 className="text-lg font-bold text-foreground mb-1">
+                          Step {flowCurrentIdx + 1} of {flowPlanItems.length} — Request evidence from customer
+                        </h2>
+                        <p className="text-sm text-muted-foreground mb-4">{item.subtitle}</p>
+                      </>
+                    )}
+
+                    {item.type === "invoice" && (
+                      <>
+                        <h2 className="text-lg font-bold text-foreground mb-1">{item.title}</h2>
+                        <p className="text-sm text-muted-foreground mb-4">{item.subtitle}</p>
+                      </>
+                    )}
 
                     {/* Approve flow */}
                     {item.type === "approve" && (
                       <>
                         {isBatch ? (
-                          /* Batch header for 3+ */
                           <div className="rounded-xl border border-border bg-surface/40 mb-4">
                             <div className="p-4">
                               <div className="flex items-center justify-between mb-2">
@@ -485,7 +603,6 @@ const AgentHome = () => {
                             )}
                           </div>
                         ) : (
-                          /* 1-2 cases: show inline */
                           <div className="space-y-3 mb-4">
                             {item.cases.map(c => (
                               <div key={c.id} className="p-3 rounded-xl border border-border bg-surface/40">
@@ -515,16 +632,19 @@ const AgentHome = () => {
 
                     {/* Evidence flow */}
                     {item.type === "evidence" && (
-                      <div className="p-4 rounded-xl border border-amber/30 bg-amber/5 mb-4">
+                      <div className="p-4 rounded-xl border border-warning/20 bg-warning/5 mb-4">
                         <div className="flex items-start gap-3">
-                          <Camera className="h-5 w-5 text-amber mt-0.5" />
-                          <div>
+                          <Camera className="h-5 w-5 text-warning mt-0.5" />
+                          <div className="flex-1">
                             <h3 className="text-sm font-semibold text-foreground mb-1">Photos needed from customer</h3>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {item.cases[0].id} · <MoneyBadge amount={item.totalAmount} status={item.cases[0].status} size="sm" />
+                            </p>
                             <p className="text-xs text-muted-foreground mb-3">
                               Request 3–5 item photos + packaging photos from {item.cases[0].shopify_order.customer_name}.
                             </p>
                             <button
-                              onClick={() => handleMarkPhotosReceived(item.cases[0])}
+                              onClick={() => handleMarkPhotosReceivedInFlow(item.cases[0])}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-accent transition-colors"
                             >
                               <ImagePlus className="h-3.5 w-3.5" /> Mark Photos Received (Mock)
@@ -536,9 +656,9 @@ const AgentHome = () => {
 
                     {/* Invoice flow */}
                     {item.type === "invoice" && (
-                      <div className="p-4 rounded-xl border border-agent-blue/30 bg-agent-blue/5 mb-4">
+                      <div className="p-4 rounded-xl border border-info/20 bg-info/5 mb-4">
                         <div className="flex items-start gap-3">
-                          <FileText className="h-5 w-5 text-agent-blue mt-0.5" />
+                          <FileText className="h-5 w-5 text-info mt-0.5" />
                           <div>
                             <h3 className="text-sm font-semibold text-foreground mb-1">Carrier invoice enriches this case</h3>
                             <p className="text-xs text-muted-foreground">
@@ -552,7 +672,14 @@ const AgentHome = () => {
                     {/* Actions */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={executeCurrentItem}
+                        onClick={() => {
+                          if (item.type === "evidence") {
+                            // Send request action
+                            handleEvidenceRequestSent(item.cases[0]);
+                          } else {
+                            executeCurrentItem();
+                          }
+                        }}
                         className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all flex items-center justify-center gap-1.5"
                       >
                         <Icon className="h-4 w-4" /> {item.primaryAction}
@@ -568,7 +695,13 @@ const AgentHome = () => {
                     {/* Skip link */}
                     {flowPlanItems.length > 1 && (
                       <button
-                        onClick={advanceFlow}
+                        onClick={() => {
+                          if (flowCurrentIdx < flowPlanItems.length - 1) {
+                            advanceToNextStep();
+                          } else {
+                            setFlowStep("all_done");
+                          }
+                        }}
                         className="w-full mt-3 text-xs text-muted-foreground hover:text-foreground text-center"
                       >
                         Skip this step →
@@ -586,18 +719,41 @@ const AgentHome = () => {
                 </div>
               )}
 
-              {/* Flow: Done */}
-              {flowStep === "done" && (
+              {/* Flow: Step done — transition to next step */}
+              {flowStep === "step_done" && (
+                <div className="py-6 text-center">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <Check className="h-5 w-5 text-primary" />
+                  </div>
+                  <h2 className="text-base font-bold text-foreground mb-1">
+                    Step {flowCurrentIdx + 1} complete
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {stepResults[stepResults.length - 1]?.submittedCount > 0
+                      ? `${stepResults[stepResults.length - 1].submittedCount} cases submitted`
+                      : stepResults[stepResults.length - 1]?.evidenceRequested
+                      ? "Evidence request sent"
+                      : stepResults[stepResults.length - 1]?.photosReceived
+                      ? "Photos received, case moved to Ready"
+                      : "Done"}
+                  </p>
+                  <button
+                    onClick={advanceToNextStep}
+                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all flex items-center justify-center gap-1.5"
+                  >
+                    Continue to step {flowCurrentIdx + 2} <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Flow: All Done */}
+              {flowStep === "all_done" && (
                 <div className="py-6 text-center">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Check className="h-6 w-6 text-primary" />
                   </div>
                   <h2 className="text-lg font-bold text-foreground mb-1">Plan complete</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {flowSummary.submitted > 0 && `${flowSummary.submitted} submitted`}
-                    {flowSummary.submitted > 0 && flowSummary.waiting > 0 && ", "}
-                    {flowSummary.waiting > 0 && `${flowSummary.waiting} waiting on customer photos`}
-                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">{flowSummary}</p>
 
                   {/* Next check-in hook */}
                   <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 mb-5">
@@ -664,7 +820,22 @@ const AgentHome = () => {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setInvoiceFeedConnected(true); setShowInvoiceModal(false); toast({ title: "Invoice feed connected" }); }}
+                onClick={() => {
+                  setInvoiceFeedConnected(true);
+                  setShowInvoiceModal(false);
+                  toast({ title: "Invoice feed connected" });
+                  // If in guided flow for invoice step, record and advance
+                  if (flowStep === "review" && flowPlanItems[flowCurrentIdx]?.type === "invoice") {
+                    setStepResults(prev => [...prev, {
+                      type: "invoice", submittedCount: 0, evidenceRequested: false, photosReceived: false, invoiceUploaded: true,
+                    }]);
+                    if (flowCurrentIdx < flowPlanItems.length - 1) {
+                      setFlowStep("step_done");
+                    } else {
+                      setFlowStep("all_done");
+                    }
+                  }
+                }}
                 className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium glow-hover transition-all"
               >
                 Mark as Connected
@@ -685,14 +856,20 @@ const AgentHome = () => {
       {photosModalCase && (
         <RequestPhotosModal
           open={true}
-          onClose={() => setPhotosModalCase(null)}
+          onClose={() => {
+            setPhotosModalCase(null);
+          }}
           orderNumber={photosModalCase.shopify_order.order_number}
           trackingNumber={photosModalCase.tracking_number}
           customerName={photosModalCase.shopify_order.customer_name}
           caseId={photosModalCase.id}
           onSent={() => {
-            toast({ title: "Request sent", description: `Photo request sent to ${photosModalCase.shopify_order.customer_name}.` });
-            setPhotosModalCase(null);
+            if (flowStep === "review") {
+              handleEvidenceRequestSent(photosModalCase);
+            } else {
+              toast({ title: "Request sent", description: `Photo request sent to ${photosModalCase.shopify_order.customer_name}.` });
+              setPhotosModalCase(null);
+            }
           }}
         />
       )}

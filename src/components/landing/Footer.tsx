@@ -14,7 +14,7 @@ const Footer = () => {
           </div>
           
           <p className="text-sm text-muted-foreground">
-            © 2025 Recoverly. All rights reserved.
+            © 2026 Recoverly. All rights reserved.
           </p>
         </div>
       </div>

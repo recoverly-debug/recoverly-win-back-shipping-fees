@@ -7,8 +7,8 @@ const HeroSection = () => {
     <section className="relative min-h-[90vh] flex items-center justify-center gradient-mesh overflow-hidden">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-coral/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-muted/10 rounded-full blur-3xl" />
       </div>
       
       <div className="container relative z-10 px-4 py-20 text-center">
@@ -18,8 +18,8 @@ const HeroSection = () => {
         </h1>
         
         <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-          We automatically find and recover shipping overcharges from UPS, FedEx, and USPS. 
-          Average seller gets back <span className="text-foreground font-semibold">$847/month</span>.
+          We automatically find and recover shipping overcharges from UPS, FedEx, and USPS 
+          via Shopify + ShipStation.
         </p>
         
         <div className="flex flex-col items-center gap-4 animate-fade-in" style={{ animationDelay: "0.2s" }}>
@@ -28,7 +28,7 @@ const HeroSection = () => {
             size="lg" 
             className="text-lg px-8 py-6 glow-hover bg-primary text-primary-foreground font-semibold"
           >
-            <Link to="/dashboard">
+            <Link to="/onboarding">
               Start Recovering
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
