@@ -1,4 +1,4 @@
-import { FileText, Image, Package, Receipt, Truck, Clock, AlertTriangle, CheckCircle2, Camera, Upload, RefreshCw } from "lucide-react";
+import { FileText, Image, Package, Receipt, Truck, Clock, AlertTriangle, CheckCircle2, Camera, Upload, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Evidence, EvidenceType } from "@/lib/case-data";
 
 interface PacketViewerProps {
@@ -46,6 +46,7 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes, onRequestPh
 
   const totalExpected = expectedTypes?.length ?? 0;
   const totalPresent = totalExpected - missingTypes.length;
+  const isAuditReady = totalExpected > 0 && missingTypes.length === 0;
 
   // Group by source
   const grouped: Record<string, Evidence[]> = {};
@@ -70,17 +71,28 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes, onRequestPh
 
   return (
     <div className="space-y-4">
-      {/* Completeness Summary */}
+      {/* Audit-Ready / Needs Evidence Badge */}
       {totalExpected > 0 && (
-        <div className="p-3 rounded-lg bg-surface border border-border">
-          <p className="text-sm text-foreground font-medium">
-            {totalPresent} of {totalExpected} core evidence items present.
+        <div className={`p-3 rounded-lg border ${isAuditReady ? "border-primary/20 bg-primary/5" : "border-warning/20 bg-warning/5"}`}>
+          <div className="flex items-center gap-2 mb-0.5">
+            {isAuditReady ? (
+              <>
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">Audit-Ready</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <span className="text-sm font-semibold text-warning">Needs evidence</span>
+              </>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {totalPresent} of {totalExpected} core {totalExpected === 1 ? "item" : "items"} present
+            {!isAuditReady && missingTypes.length > 0 && (
+              <> — missing {missingTypes.map((t) => evidenceLabels[t].toLowerCase()).join(", ")}</>
+            )}
           </p>
-          {missingTypes.length > 0 && (
-            <p className="text-xs text-amber mt-0.5">
-              Missing: {missingTypes.map((t) => evidenceLabels[t].toLowerCase()).join(", ")}.
-            </p>
-          )}
         </div>
       )}
 
@@ -118,7 +130,7 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes, onRequestPh
       {/* Missing Evidence */}
       {showMissing && missingTypes.length > 0 && (
         <div>
-          <h4 className="label-caps mb-2 text-amber">Missing Evidence</h4>
+          <h4 className="label-caps mb-2 text-warning">Missing Evidence</h4>
           <div className="space-y-2">
             {missingTypes.map((type) => {
               const Icon = evidenceIcons[type];
@@ -126,21 +138,21 @@ const PacketViewer = ({ evidence, showMissing = true, expectedTypes, onRequestPh
               return (
                 <div
                   key={type}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-amber/30 bg-amber/5"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-warning/20 bg-warning/5"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-amber/10 flex items-center justify-center shrink-0">
-                    <Icon className="h-4 w-4 text-amber" />
+                  <div className="h-9 w-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                    <Icon className="h-4 w-4 text-warning" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground">{evidenceLabels[type]}</p>
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber" />
+                      <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                     </div>
-                    <p className="text-xs text-amber">Required — not yet provided</p>
+                    <p className="text-xs text-warning">Required — not yet provided</p>
                     {action && (
                       <button
                         onClick={action.onClick}
-                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg border border-amber/30 text-xs font-medium text-amber hover:bg-amber/10 transition-colors"
+                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg border border-warning/20 text-xs font-medium text-warning hover:bg-warning/10 transition-colors"
                       >
                         <action.icon className="h-3.5 w-3.5" /> {action.label}
                       </button>
