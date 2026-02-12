@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Store, Loader2, CheckCircle2, ArrowRight, Sparkles, Radio, Shield, Check } from "lucide-react";
+import { Package, Store, Loader2, CheckCircle2, ArrowRight, Sparkles, Radio, Shield, Check, Info } from "lucide-react";
 import Logo from "@/components/Logo";
 
 type Step = "shipstation" | "shopify" | "monitoring" | "syncing" | "results";
@@ -7,6 +7,7 @@ type Step = "shipstation" | "shopify" | "monitoring" | "syncing" | "results";
 const Onboarding = () => {
   const [step, setStep] = useState<Step>("shipstation");
   const [connecting, setConnecting] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const handleConnect = (next: Step) => {
     setConnecting(true);
@@ -129,12 +130,33 @@ const Onboarding = () => {
             <p className="text-sm text-muted-foreground mb-1">First sync completed — new issues found</p>
             <p className="text-4xl font-bold text-primary money-glow my-4">$2,194.45</p>
             <p className="text-sm text-muted-foreground mb-4">across 10 recovery opportunities</p>
-            <div className="grid grid-cols-2 gap-3 mb-6 text-sm">
+            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Overcharges</span><br /><span className="text-foreground font-bold">4 cases</span></div>
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Late Deliveries</span><br /><span className="text-foreground font-bold">3 cases</span></div>
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Lost Packages</span><br /><span className="text-foreground font-bold">1 case</span></div>
               <div className="p-3 rounded-lg bg-surface"><span className="text-muted-foreground">Damages</span><br /><span className="text-foreground font-bold">2 cases</span></div>
             </div>
+
+            {/* Value moment */}
+            <div className="relative p-3 rounded-xl border border-border bg-surface mb-5">
+              <p className="text-xs text-muted-foreground">
+                Automated 1,400 checks <span className="text-muted-foreground/60">(demo)</span> · Estimated manual effort avoided: ~8–12 hours
+              </p>
+              <button
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                onClick={() => setShowTooltip(!showTooltip)}
+                className="inline-flex items-center gap-1 mt-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+              >
+                <Info className="h-3 w-3" /> How is this estimated?
+              </button>
+              {showTooltip && (
+                <div className="absolute left-4 right-4 bottom-full mb-2 p-2 rounded-lg bg-popover border border-border shadow-lg text-xs text-popover-foreground animate-fade-in z-10">
+                  Estimate assumes ~20–30 seconds per check across shipments, invoices, and tracking events.
+                </div>
+              )}
+            </div>
+
             <a href="/agent" className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium glow-hover transition-all flex items-center justify-center gap-2">
               Go to Ongoing Audit <ArrowRight className="h-5 w-5" />
             </a>
